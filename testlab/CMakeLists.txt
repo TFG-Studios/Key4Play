@@ -41,7 +41,8 @@ find_package(OpenGL REQUIRED)
 add_library(key4play_input_core STATIC
   ../shared/src/input_core.c
   ../shared/src/hid_report.c
-  ../shared/src/input_snapshot.c)
+  ../shared/src/input_snapshot.c
+  ../shared/src/pad_jump_plan.c)
 target_include_directories(key4play_input_core PUBLIC ../shared/include)
 if(NOT MSVC)
   target_link_libraries(key4play_input_core PUBLIC m)
