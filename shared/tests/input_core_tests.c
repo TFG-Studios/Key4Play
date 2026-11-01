@@ -71,6 +71,29 @@ static void test_descriptor_parser(void) {
 }
 
 
+static void test_pad_jump_plan_real_wrapper_fixtures(void) {
+    /* Byte fixtures published by the ProCon PS4 integration test. */
+    static const uint8_t read_stub[16] = {
+        0x31, 0xc9, 0xe9, 0xe9, 0xed, 0xff, 0xff,
+        0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90
+    };
+    static const uint8_t state_stub[16] = {
+        0x31, 0xd2, 0xe9, 0x49, 0xec, 0xff, 0xff,
+        0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90
+    };
+    K4pPadJumpPlan plan;
+
+    assert(k4p_pad_plan_jump(read_stub, 0x10000u, 0x20000u,
+                             0xc9u, &plan) == 0);
+    assert(plan.original_target == 0xedf0u);
+    assert(plan.replacement_delta == 0xfff9u);
+
+    assert(k4p_pad_plan_jump(state_stub, 0x10000u, 0x20000u,
+                             0xd2u, &plan) == 0);
+    assert(plan.original_target == 0xec50u);
+    assert(plan.replacement_delta == 0xfff9u);
+}
+
 static void test_pad_jump_plan(void) {
     uint8_t stub[16];
     K4pPadJumpPlan plan;
@@ -285,5 +308,6 @@ int main(void) {
     test_descriptor_parser();
     test_input_snapshot();
     test_pad_jump_plan();
+    test_pad_jump_plan_real_wrapper_fixtures();
     return 0;
 }
