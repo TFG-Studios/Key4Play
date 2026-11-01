@@ -44,7 +44,7 @@ The PS4-side reader resolves sceUsbd, enumerates HID interfaces, retrieves bound
 
 An opt-in `scePadRead` / `scePadReadState` overlay is now included. It explicitly loads `libScePad`, uses signature-checked 64-bit relative-jump hooks, adds mapped buttons and only overrides mapped stick axes, leaving other physical DS4 fields intact. Hook installation checks the known Pad forwarding-stub signature and atomically changes only its relative-jump displacement; unknown prologues are rejected instead of patched. The shared snapshot read is non-blocking on the game polling path. The overlay is **disabled by default** and requires `/data/GoldHEN/key4play.ini` with `[Key4Play]` and `enable_hooks=1`. It must also be loaded only in a specific title section of GoldHEN `plugins.ini`, never `[default]`.
 
-**Important:** the overlay and USB reader have only been cross-compiled, not run on PS4 hardware. Hook target resolution, detour behavior, physical DS4 passthrough, USB device compatibility and safe unload remain unverified. Do not install or enable this build yet.
+**Important:** the overlay and USB reader have only been cross-compiled, not run on PS4 hardware. Hook target resolution, forwarding-stub signature compatibility, physical DS4 passthrough, USB device compatibility and safe unload remain unverified. Do not install or enable this build yet.
 
 ## Architecture
 
@@ -61,7 +61,7 @@ USB keyboard + USB mouse
   Keyboard/mouse -> DualShock-style state
           |
           v
-  Future game-facing controller integration
+  Experimental signature-checked scePadRead overlay
           |
           v
          Game
@@ -90,7 +90,7 @@ The Windows Test Lab converts SDL input into synthetic USB HID boot reports, the
 1. Test Lab v0.2 and automated mapping tests.
 2. Complete static review and test generic HID report retrieval, descriptor reports and boot fallback.
 3. Validate snapshot handoff, device hotplug and plugin shutdown on real PS4 hardware.
-4. Validate the experimental `scePadRead` / `scePadReadState` overlay, detour targets and DS4 passthrough on the target GoldHEN build.
+4. Validate the experimental `scePadRead` / `scePadReadState` overlay, forwarding-stub targets and DS4 passthrough on the target GoldHEN build.
 5. Tune mouse-to-stick response and validate real keyboards/mice.
 6. Reversible console smoke tests and first gameplay validation.
 7. Native PS4 configuration app, profiles and per-title compatibility.
