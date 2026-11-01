@@ -110,6 +110,12 @@ static int switch_hook(K4pJumpHook *hook, int enable) {
     changed = compare_exchange_u32_unaligned(hook->entry + 3u,
                                               expected, desired);
     result = sceKernelMprotect((void *)page, 0x4000u, 5u);
+    if (result != 0) {
+        int retry = sceKernelMprotect((void *)page, 0x4000u, 5u);
+        if (retry != 0)
+            printf("[Key4Play] Warning: code-page protection restore failed: %d / %d\\n",
+                   result, retry);
+    }
 
     if (!changed) return -9;
     hook->live = enable;
