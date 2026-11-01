@@ -27,7 +27,7 @@ struct libusb_endpoint_descriptor {
 #define K4P_HIDDEN __attribute__((visibility("hidden")))
 
 K4P_PUBLIC const char* g_pluginName = "Key4Play USB Reader";
-K4P_PUBLIC const char* g_pluginDesc = "Reads boot HID keyboard/mouse reports; no game injection";
+K4P_PUBLIC const char* g_pluginDesc = "USB HID keyboard/mouse with opt-in controller overlay";
 K4P_PUBLIC const char* g_pluginAuth = "TFG-Studios";
 K4P_PUBLIC uint32_t g_pluginVersion = 0x00000200;
 
