@@ -24,7 +24,6 @@ extern "C" {
 #define K4P_BTN_CIRCLE   0x00002000u
 #define K4P_BTN_CROSS    0x00004000u
 #define K4P_BTN_SQUARE   0x00008000u
-#define K4P_BTN_SHARE    0x00000001u
 #define K4P_BTN_TOUCHPAD 0x00100000u
 
 #define K4P_AXIS_LX 0x01u
