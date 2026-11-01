@@ -3,7 +3,7 @@
 ## Target baseline
 
 - PS4 system software: 12.52 (owner-reported).
-- GoldHEN: v2.4b18.9 is the provisional target inferred from the user's description; exact installed build remains unverified on-console.
+- GoldHEN: v2.4b18.9 confirmed by the owner from the matching Modded Warfare release/video; exact installed build string is not independently read from the console.
 - Build host: Windows; GitHub Actions builds the Windows Test Lab and PS4 PRX.
 - Runtime requirement: all final input handling runs on PS4. The Windows Test Lab is development-only.
 
