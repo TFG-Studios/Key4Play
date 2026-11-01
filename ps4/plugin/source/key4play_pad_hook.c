@@ -81,10 +81,12 @@ static int32_t k4p_scePadReadState_hook(int32_t handle, OrbisPadData *data) {
 static void restore_detour(Detour *detour) {
     uint64_t current_jump = 0;
     int owns_entry_patch = 0;
+    int had_stub;
 
     if (!detour) return;
+    had_stub = detour->StubPtr != 0;
 
-    if (detour->StubPtr) {
+    if (had_stub) {
         /*
          * GoldHEN's x64 restore path copies exactly the decoded instruction
          * span. Its x32 path computes an unsafe restore length for this
@@ -109,10 +111,7 @@ static void restore_detour(Detour *detour) {
      * original instructions into our trampoline so that the later plugin's
      * trampoline can still call through it. Keep that mapping alive.
      */
-    if (detour->TrampolinePtr && owns_entry_patch)
-        sceKernelMunmap(detour->TrampolinePtr,
-                        sizeof(detour->JumpInstructions64));
-    else if (detour->TrampolinePtr && !detour->StubPtr && !detour->FunctionPtr)
+    if (detour->TrampolinePtr && (!had_stub || owns_entry_patch))
         sceKernelMunmap(detour->TrampolinePtr,
                         sizeof(detour->JumpInstructions64));
 
