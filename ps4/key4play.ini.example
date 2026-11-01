@@ -1,0 +1,5 @@
+; Key4Play controller overlay configuration
+; This file is intentionally opt-in. Do not enable before the PRX is
+; validated on your exact PS4 firmware and GoldHEN build.
+[Key4Play]
+enable_hooks=0
