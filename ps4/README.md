@@ -1,46 +1,66 @@
 # Key4Play PS4-side development
 
-## Current milestone: USB boot-HID reader (no game injection)
+## Current implementation
 
-The PS4 PRX now:
-1. Loads the USB system module and resolves sceUsbd functions dynamically.
-2. Enumerates connected USB devices and active configuration descriptors.
-3. Identifies USB HID boot keyboard and boot mouse interfaces.
-4. Finds an interrupt-IN endpoint and records its packet size.
-5. Opens and claims the selected interface.
-6. Reads HID class descriptors and requests bounded report descriptors where available.
-7. Parses descriptor-defined report layouts and reads Report-ID/NKRO keyboard and mouse reports; falls back to boot protocol for standard boot interfaces.
-8. Starts separate keyboard and mouse reader threads, publishes decoded states into the shared snapshot, and neutralizes a device state on invalid reports, read failures and disconnects.
-9. Releases claimed interfaces and closes handles on disconnect/unload.
+The experimental PRX currently contains:
 
-This is the first real PS4 input-reading path. It is still deliberately diagnostic-only: it does not hook scePadRead/scePadReadState, modify OrbisPadData, create a virtual controller, or send mapped input to games.
+1. Dynamic loading/resolution of the USB system module and sceUsbd functions.
+2. USB HID interface enumeration and interrupt-IN endpoint discovery.
+3. Bounded HID report-descriptor retrieval and parsing where the interface exposes a report descriptor.
+4. Descriptor-defined Report-ID/NKRO keyboard and mouse decoding, with standard boot-protocol fallback.
+5. Independent keyboard and mouse reader threads.
+6. A lock-protected shared input snapshot; invalid reports, mouse idle timeouts, read failures and disconnects publish neutral state.
+7. An opt-in gamepad overlay that detours `scePadRead` and `scePadReadState`, merges mapped button bits, overrides only mapped axes, and preserves other physical DS4 fields.
 
-The PS4 transport now attempts descriptor-defined HID reports first, including Report IDs and NKRO key bitmaps, and falls back to standard boot protocol when descriptor retrieval/parsing is unavailable. This remains a bounded first implementation: vendor-specific layouts, unusual composite interfaces, multiple devices of the same class, and physical-device quirks still require testing.
+The overlay uses the pinned GoldHEN SDK Detour implementation and OpenOrbis `OrbisPadData`. Compile-time checks cover the fields used by the overlay and the expected structure size. The PRX links `libScePad`, the SDK Detour/HDE64 sources, and the shared HID/input modules.
+
+## Controller overlay safety gate
+
+The controller overlay is **disabled by default**. It is only enabled if `/data/GoldHEN/key4play.ini` contains:
+
+```ini
+[Key4Play]
+enable_hooks=1
+```
+
+The PRX must additionally be loaded from a **specific title section** in GoldHEN's `plugins.ini`, never from `[default]`. The example configuration is `ps4/key4play.ini.example` and keeps the setting disabled.
+
+Do not enable the overlay or install this build yet. The hooks have only been cross-compiled. They have not been validated in a running title on firmware 12.52, and we have not verified the imported pad-function targets, detour stability, DS4 passthrough, device compatibility or unload behavior on hardware. In particular, do not manually unload a hooked plugin while a game is actively polling controller input.
+
+## Input mapping
+
+The shared mapping currently uses:
+- WASD: left stick.
+- Arrow keys: D-pad.
+- Space: Cross; Left Ctrl: Circle; E: Square; Q: Triangle.
+- Left Shift/R: L1/R1; C/V: L3/R3; Enter: Options.
+- Mouse movement: right stick; left/right mouse buttons: R2/L2; middle mouse button: touchpad.
+- Mouse stick state is neutralized on USB idle timeout to avoid a stuck deflection.
+
+Mouse-to-right-stick is controller emulation, not native mouse aiming. Sensitivity and response still need real-game tuning. The current USB transport selects one qualifying keyboard interface and one qualifying mouse interface; multiple devices of the same class, a single interface exposing both collections, unusual composite devices, vendor-specific report formats and physical-device quirks remain limitations.
 
 ## Build prerequisites
 
 - OpenOrbis PS4 Toolchain v0.5.4 / LLVM 18.
-- GoldHEN Plugins SDK (workflow pins a tested revision).
+- GoldHEN Plugins SDK (the CI workflow pins a tested revision).
 - Clang, LLD and GNU Make.
-- Environment variables:
-  - OO_PS4_TOOLCHAIN: extracted OpenOrbis toolchain root.
-  - GOLDHEN_SDK: GoldHEN Plugins SDK checkout.
+- `OO_PS4_TOOLCHAIN`: extracted OpenOrbis toolchain root.
+- `GOLDHEN_SDK`: GoldHEN Plugins SDK checkout.
 
 Build from the repository root:
 
     make -C ps4/plugin
 
-Expected output: ps4/plugin/build/key4play_usb_probe.prx.
+Expected output: `ps4/plugin/build/key4play_usb_probe.prx`.
 
-GitHub Actions builds this PRX from the pinned toolchain/SDK and uploads an artifact. Compilation is not proof of runtime compatibility, correct USB permissions, stable thread behavior or safe console loading. Do not install it on the console until the code has been reviewed and a reversible, title-specific test plan is ready.
+GitHub Actions cross-compiles the PRX and uploads an artifact. A successful build proves compilation and linking only; it does not prove runtime compatibility or safe installation.
 
-## Safety and next steps
+## Remaining validation before a user test build
 
-The plugin performs USB reads only when explicitly loaded. It does not inject controller input. Before hardware testing, verify plugin lifecycle and rollback. The first console test should be limited to loading/unloading and device-reader diagnostics, with the physical DS4 connected.
+1. Validate the USB descriptor requests and reader lifecycle on the actual console.
+2. Confirm the imported `scePadRead` / `scePadReadState` targets are the intended game-process functions on the installed GoldHEN build.
+3. Validate detour installation/removal and DS4 passthrough in a controlled title.
+4. Verify real keyboard/mouse models, unplug/replug behavior and mouse response.
+5. Prepare a reversible, title-specific test procedure with a known rollback path.
 
-Next increments:
-1. Run static and synthetic tests for descriptor-defined reports, boot fallback and snapshot disconnect neutralization.
-2. Review PS4 USB descriptor retrieval and lifecycle assumptions against the target GoldHEN/firmware build.
-3. Validate the controller overlay's imported `scePadRead` targets and detour behavior in a controlled title on the target firmware.
-4. Confirm physical DS4 passthrough and input coexistence; tune mouse-to-stick behavior.
-5. Perform reversible PS4 smoke tests before describing any PRX as a gameplay release.
+Until those steps are complete, treat every PRX artifact as an experimental engineering build, not an installable gameplay release.
