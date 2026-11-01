@@ -1,6 +1,6 @@
 # Key4Play PS4 validation plan
 
-This is a staged validation plan for the experimental PRX. It is not an installation guide for a gameplay release. The working target is GoldHEN v2.4b18.9 on firmware 12.52, inferred from the owner's description of the 13.00-capable release; confirm the actual GoldHEN version in the console menu before proceeding.
+This is a staged validation plan for the experimental PRX. It is not an installation guide for a gameplay release. The owner has confirmed GoldHEN v2.4b18.9 from the matching Modded Warfare release/video, targeting firmware 12.52. Before a console test, verify that the GoldHEN menu reports v2.4b18.9 (or its exact patch suffix) so a different build is not accidentally tested.
 
 ## Before touching the console
 
