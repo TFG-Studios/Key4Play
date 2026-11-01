@@ -30,7 +30,7 @@ The current Test Lab converts SDL events into synthetic 8-byte keyboard and 4-by
 
 The boot report parser is intentionally limited to standard boot-protocol keyboard/mouse report layouts. Gaming peripherals using vendor-specific or report-descriptor-defined layouts will need descriptor parsing and per-device validation.
 
-The PS4-side milestone will first enumerate USB devices and identify candidate HID interfaces. It will not install game hooks or modify game memory.
+The PS4-side reader now claims standard boot keyboard/mouse interfaces and reads interrupt reports on separate threads. It still does not install game hooks, modify game memory, or deliver controller input to games.
 
 ## GitHub Actions
 
