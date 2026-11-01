@@ -509,6 +509,8 @@ static void* input_reader(void* argument) {
 
 K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
     int result;
+    void *pad_read_target = 0;
+    void *pad_read_state_target = 0;
     (void)argc;
     (void)argv;
 
@@ -562,7 +564,29 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
             g_usbd_initialized = 0;
             return g_pad_module;
         }
-        result = k4p_pad_hook_start();
+        result = sceKernelDlsym(g_pad_module, "scePadRead", &pad_read_target);
+        if (result < 0 || !pad_read_target) {
+            printf("[Key4Play] scePadRead export resolution failed: %d\n", result);
+            __atomic_store_n(&g_reader_stop, 1, __ATOMIC_RELEASE);
+            scePthreadJoin(g_reader_threads[0], 0);
+            scePthreadJoin(g_reader_threads[1], 0);
+            g_reader_started[0] = g_reader_started[1] = 0;
+            g_usbd.exit();
+            g_usbd_initialized = 0;
+            return result < 0 ? result : -1;
+        }
+        result = sceKernelDlsym(g_pad_module, "scePadReadState", &pad_read_state_target);
+        if (result < 0 || !pad_read_state_target) {
+            printf("[Key4Play] scePadReadState export resolution failed: %d\n", result);
+            __atomic_store_n(&g_reader_stop, 1, __ATOMIC_RELEASE);
+            scePthreadJoin(g_reader_threads[0], 0);
+            scePthreadJoin(g_reader_threads[1], 0);
+            g_reader_started[0] = g_reader_started[1] = 0;
+            g_usbd.exit();
+            g_usbd_initialized = 0;
+            return result < 0 ? result : -1;
+        }
+        result = k4p_pad_hook_start(pad_read_target, pad_read_state_target);
         if (result < 0) {
             printf("[Key4Play] Controller hook setup failed; stopping readers\n");
             __atomic_store_n(&g_reader_stop, 1, __ATOMIC_RELEASE);
