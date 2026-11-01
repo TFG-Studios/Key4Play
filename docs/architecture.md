@@ -23,18 +23,19 @@ The shared parser supports bounded descriptor-defined layouts, Report IDs, keybo
 ## PS4 integration stages
 
 1. USB HID reader: resolve sceUsbd, enumerate interfaces, retrieve bounded report descriptors, decode descriptor-defined or boot reports on independent reader threads, and publish snapshots.
-2. Shared input snapshot: hand off keyboard/mouse state safely and neutralize on invalid reports or disconnects.
-3. Controller overlay: use the GoldHEN hook model for scePadRead/scePadReadState only after confirming exact target ABI, symbol resolution, hook lifecycle and physical DS4 preservation.
-4. Title-specific compatibility testing; no global hook by default.
+2. Shared input snapshot: hand off keyboard/mouse state safely, neutralize on invalid reports/disconnects, and let the game-thread reader skip a sample rather than spin when the lock is busy.
+3. Experimental controller overlay: load libScePad and detour scePadRead/scePadReadState with the GoldHEN x64 Detour engine; merge mapped buttons and mapped axes into the returned OrbisPadData while preserving untouched DS4 fields.
+4. Title-specific compatibility testing; the overlay remains disabled by default and no global hook is enabled.
 
 ## Controller input boundary
 
-OpenOrbis exposes scePadRead and scePadReadState and the OrbisPadData structure. GoldHEN's gamepad_helper demonstrates hooking those functions and editing returned pad state. This establishes a plausible game-facing route, but not universal compatibility. The actual implementation must resolve the target module in the game process, validate hook creation, preserve all original fields, and restore hooks cleanly. Runtime validation on the target GoldHEN build is mandatory.
+OpenOrbis exposes scePadRead and scePadReadState and the OrbisPadData structure. GoldHEN's gamepad_helper demonstrates hooking those functions and editing returned pad state. This establishes a plausible game-facing route, but not universal compatibility. The current implementation explicitly loads libScePad, uses x64 detours, adds compile-time OrbisPadData layout checks, and has size-aware restore/cleanup logic. This is cross-compiled but still needs runtime validation on the target GoldHEN build; it does not prove that every title uses these functions.
 
 ## Safety policy
 
 - Never update/downgrade firmware for this project.
 - Never install a PRX solely because it compiled.
 - Start with USB reader diagnostics and title-specific plugin loading.
-- No controller hooks enabled in a user-facing build until USB input and shared-core tests pass, hook lifecycle is reviewed, and a rollback path is ready.
+- The controller overlay is disabled by default; enabling it requires an explicit config flag and title-specific plugin entry.
+- Do not manually unload the hooked plugin while a title is polling pad input; validate title-exit cleanup and keep a rollback path.
 - Preserve the physical DS4.
