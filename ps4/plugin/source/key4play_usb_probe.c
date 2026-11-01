@@ -4,6 +4,20 @@
 #include <orbis/libkernel.h>
 #include <orbis/Usbd.h>
 
+/* OpenOrbis currently forward-declares this libusb ABI type only. */
+struct libusb_endpoint_descriptor {
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bEndpointAddress;
+    uint8_t bmAttributes;
+    uint16_t wMaxPacketSize;
+    uint8_t bInterval;
+    uint8_t bRefresh;
+    uint8_t bSynchAddress;
+    const unsigned char* extra;
+    int32_t extra_length;
+};
+
 #define K4P_PUBLIC __attribute__((visibility("default")))
 #define K4P_HIDDEN __attribute__((visibility("hidden")))
 
@@ -132,6 +146,19 @@ static void inspect_device(libusb_device* device, unsigned index,
                 printf("[Key4Play]   other HID interface=%u subclass=%u protocol=%u\n",
                        alt->bInterfaceNumber, alt->bInterfaceSubClass,
                        alt->bInterfaceProtocol);
+            }
+            if (alt->endpoint) {
+                unsigned e;
+                for (e = 0; e < alt->bNumEndpoints; ++e) {
+                    const struct libusb_endpoint_descriptor* endpoint = &alt->endpoint[e];
+                    if ((endpoint->bmAttributes & 0x03u) == 0x03u) {
+                        printf("[Key4Play]     interrupt %s endpoint=0x%02x maxPacket=%u interval=%u\\n",
+                               (endpoint->bEndpointAddress & 0x80u) ? "IN" : "OUT",
+                               endpoint->bEndpointAddress,
+                               endpoint->wMaxPacketSize & 0x07ffu,
+                               endpoint->bInterval);
+                    }
+                }
             }
         }
     }
