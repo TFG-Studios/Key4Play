@@ -124,7 +124,7 @@ int k4p_pad_hook_start(void *read_target, void *read_state_target) {
 
     if (g_read_hook_installed && g_read_state_hook_installed) return 0;
     if (!read_target || !read_state_target || read_target == read_state_target) {
-        printf("[Key4Play] Invalid or overlapping Pad export addresses\\n");
+        printf("[Key4Play] Invalid or overlapping Pad export addresses\n");
         return -1;
     }
 
