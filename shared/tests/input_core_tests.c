@@ -5,6 +5,7 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <string.h>
 
 static K4pKeyboardReport keyboard_with(const uint8_t *usages, unsigned count,
                                        uint8_t modifiers) {
