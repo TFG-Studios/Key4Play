@@ -1,0 +1,47 @@
+name: Key4Play Test Lab - Windows
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "testlab/**"
+      - ".github/workflows/testlab-windows.yml"
+  pull_request:
+    paths:
+      - "testlab/**"
+      - ".github/workflows/testlab-windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S testlab -B testlab/build -A x64 -DBUILD_TESTING=ON
+
+      - name: Build
+        run: cmake --build testlab/build --config Release --parallel
+
+      - name: Run input-core tests
+        run: ctest --test-dir testlab/build -C Release --output-on-failure
+
+      - name: Package app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item testlab/build/Release/key4play_testlab.exe dist/
+          Compress-Archive -Path dist/key4play_testlab.exe -DestinationPath Key4Play-TestLab-Windows-x64.zip -Force
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Key4Play-TestLab-Windows-x64
+          path: Key4Play-TestLab-Windows-x64.zip
+          if-no-files-found: error
+          retention-days: 14
