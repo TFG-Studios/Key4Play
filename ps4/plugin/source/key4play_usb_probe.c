@@ -527,8 +527,7 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
                               (void*)(uintptr_t)1, "k4p-mouse");
     if (result != 0) {
         printf("[Key4Play] mouse reader thread failed: %d\n", result);
-        k4p_pad_hook_stop();
-    __atomic_store_n(&g_reader_stop, 1, __ATOMIC_RELEASE);
+        __atomic_store_n(&g_reader_stop, 1, __ATOMIC_RELEASE);
         scePthreadJoin(g_reader_threads[0], 0);
         g_reader_started[0] = 0;
         g_usbd.exit();
@@ -544,6 +543,7 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
 K4P_PUBLIC int plugin_unload(int argc, const char* argv[]) {
     (void)argc;
     (void)argv;
+    k4p_pad_hook_stop();
     __atomic_store_n(&g_reader_stop, 1, __ATOMIC_RELEASE);
 
     if (g_reader_started[0]) {
