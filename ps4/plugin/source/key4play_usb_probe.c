@@ -244,7 +244,7 @@ static int find_hid_device(K4pDevice* out, int mouse) {
     if (!out) return 0;
     count = g_usbd.get_device_list(&devices);
     if (count < 0 || !devices) {
-        printf("[Key4Play] USB list failed: %d\\n", count);
+        printf("[Key4Play] USB list failed: %d\n", count);
         return 0;
     }
 
@@ -340,7 +340,7 @@ static int find_hid_device(K4pDevice* out, int mouse) {
                 if (generic) out->layout = layout;
                 found = 1;
 
-                printf("[Key4Play] %s attached VID=%04x PID=%04x interface=%u IN=0x%02x packet=%u mode=%s\\n",
+                printf("[Key4Play] %s attached VID=%04x PID=%04x interface=%u IN=0x%02x packet=%u mode=%s\n",
                     mouse ? "Mouse" : "Keyboard", descriptor.idVendor,
                     descriptor.idProduct, alt->bInterfaceNumber,
                     endpoint_in, packet_size,
@@ -361,7 +361,7 @@ static int hooks_explicitly_enabled(void) {
     int in_section = 0;
     int enabled = 0;
     if (!file) {
-        printf("[Key4Play] No key4play.ini; controller overlay remains disabled\\n");
+        printf("[Key4Play] No key4play.ini; controller overlay remains disabled\n");
         return 0;
     }
 
@@ -370,8 +370,8 @@ static int hooks_explicitly_enabled(void) {
         char* end;
         while (*p && isspace((unsigned char)*p)) ++p;
         end = p + strlen(p);
-        while (end > p && isspace((unsigned char)end[-1])) *--end = '\\0';
-        if (*p == '\\0' || *p == ';' || *p == '#') continue;
+        while (end > p && isspace((unsigned char)end[-1])) *--end = '\0';
+        if (*p == '\0' || *p == ';' || *p == '#') continue;
         if (*p == '[') {
             in_section = (strcmp(p, "[Key4Play]") == 0);
             continue;
@@ -543,11 +543,11 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
     }
     g_reader_started[1] = 1;
 
-    printf("[Key4Play] USB readers started.\\n");
+    printf("[Key4Play] USB readers started.\n");
     if (hooks_explicitly_enabled()) {
         result = k4p_pad_hook_start();
         if (result < 0) {
-            printf("[Key4Play] Controller hook setup failed; stopping readers\\n");
+            printf("[Key4Play] Controller hook setup failed; stopping readers\n");
             __atomic_store_n(&g_reader_stop, 1, __ATOMIC_RELEASE);
             scePthreadJoin(g_reader_threads[0], 0);
             scePthreadJoin(g_reader_threads[1], 0);
@@ -557,7 +557,7 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
             return result;
         }
     } else {
-        printf("[Key4Play] Controller overlay disabled by configuration.\\n");
+        printf("[Key4Play] Controller overlay disabled by configuration.\n");
     }
     return 0;
 }
