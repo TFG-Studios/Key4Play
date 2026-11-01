@@ -79,6 +79,11 @@ static void test_input_snapshot(void) {
     k4p_input_snapshot_init(&snapshot);
     assert(k4p_input_snapshot_read(&snapshot, &frame));
     assert(frame.generation == 0u);
+
+    /* The game polling hook must skip a busy snapshot instead of spinning. */
+    snapshot.lock_word = 1L;
+    assert(!k4p_input_snapshot_read(&snapshot, &frame));
+    snapshot.lock_word = 0L;
     assert(!frame.keyboard_connected && !frame.mouse_connected);
 
     k4p_pad_state_neutral(&keyboard);
