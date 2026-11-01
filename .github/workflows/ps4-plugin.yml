@@ -1,0 +1,67 @@
+name: Key4Play PS4 PRX Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ps4/plugin/**"
+      - "shared/**"
+      - ".github/workflows/ps4-plugin.yml"
+  pull_request:
+    paths:
+      - "ps4/plugin/**"
+      - "shared/**"
+      - ".github/workflows/ps4-plugin.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-prx:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Key4Play
+        uses: actions/checkout@v4
+
+      - name: Install LLVM and build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 lld-18 make curl
+
+      - name: Download OpenOrbis toolchain
+        run: |
+          mkdir -p "$RUNNER_TEMP/openorbis"
+          curl -fL --retry 3 \
+            https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.4/toolchain-llvm-18.tar.gz \
+            -o "$RUNNER_TEMP/openorbis-toolchain.tar.gz"
+          tar -xzf "$RUNNER_TEMP/openorbis-toolchain.tar.gz" -C "$RUNNER_TEMP/openorbis"
+          TOOLCHAIN_ROOT="$(find "$RUNNER_TEMP/openorbis" -type f -name link.x -printf '%h\n' | head -n 1)"
+          if [ -z "$TOOLCHAIN_ROOT" ]; then
+            echo "Could not locate OpenOrbis link.x in the release archive."
+            find "$RUNNER_TEMP/openorbis" -maxdepth 3 -type f | head -n 40
+            exit 1
+          fi
+          test -x "$TOOLCHAIN_ROOT/bin/linux/create-fself"
+          echo "OO_PS4_TOOLCHAIN=$TOOLCHAIN_ROOT" >> "$GITHUB_ENV"
+
+      - name: Checkout GoldHEN Plugins SDK headers and CRT
+        uses: actions/checkout@v4
+        with:
+          repository: GoldHEN/GoldHEN_Plugins_SDK
+          ref: main
+          path: goldhen-sdk
+
+      - name: Build discovery-only PRX
+        run: |
+          make -C ps4/plugin clean all CC=clang-18 LD=ld.lld-18 \
+            GOLDHEN_SDK="$GITHUB_WORKSPACE/goldhen-sdk" \
+            OO_PS4_TOOLCHAIN="$OO_PS4_TOOLCHAIN"
+
+      - name: Upload PRX build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Key4Play-PS4-USB-Probe-PRX
+          path: ps4/plugin/build/key4play_usb_probe.prx
+          if-no-files-found: error
+          retention-days: 14
