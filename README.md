@@ -65,7 +65,7 @@ USB keyboard + USB mouse
          Game
 \`\`\`
 
-The Windows Test Lab simulates USB HID boot reports and uses the same portable mapping code as the PS4 reader. Windows SDL input is not itself the same as PS4 USB input; it only creates test reports for the shared core.
+The Windows Test Lab converts SDL input into synthetic USB HID boot reports, then runs those packets through the same boot-report decoders and mapping functions used by the PS4 reader. Windows SDL input is not itself the same as PS4 USB input; the report format and conversion logic are shared, while the real USB transport and hardware behavior are not.
 
 ## Repository layout
 
