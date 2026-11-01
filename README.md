@@ -42,7 +42,7 @@ The initial PS4 PRX scaffold dynamically resolves the USB system module function
 
 **It does not yet open devices, claim interfaces, read reports, hook controller functions, or inject inputs.** It is a discovery-only build milestone, not an installable Key4Play release.
 
-The PS4 build workflow downloads the OpenOrbis toolchain and GoldHEN SDK headers/CRT, then attempts to compile the discovery-only PRX. CI success will validate compilation, not runtime compatibility or safe console loading.
+The PS4 build workflow downloads the pinned OpenOrbis toolchain and GoldHEN SDK headers/CRT, then compiles and packages the discovery-only PRX. The initial PRX build has passed GitHub Actions. This validates compilation only, not runtime compatibility or safe console loading.
 
 ## Architecture
 
