@@ -26,7 +26,7 @@ CMake downloads pinned SDL2 and Dear ImGui revisions on first configure.
 
 ## Important limitations
 
-The current Test Lab uses SDL to simulate HID reports. The portable core decodes USB HID boot keyboard/mouse reports and maps them into a DualShock-style state. It does not create a Windows virtual gamepad, inject into games, load a GoldHEN plugin, or connect to a PS4.
+The current Test Lab converts SDL events into synthetic 8-byte keyboard and 4-byte mouse boot reports, then calls the same k4p_decode_boot_keyboard / k4p_decode_boot_mouse decoders and mapping functions used by the PS4 reader. This shares the report format, decoder and conversion logic, but does not reproduce the physical USB transport or every device-specific quirk. It does not create a Windows virtual gamepad, inject into games, load a GoldHEN plugin, or connect to a PS4.
 
 The boot report parser is intentionally limited to standard boot-protocol keyboard/mouse report layouts. Gaming peripherals using vendor-specific or report-descriptor-defined layouts will need descriptor parsing and per-device validation.
 
