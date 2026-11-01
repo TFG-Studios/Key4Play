@@ -87,7 +87,7 @@ int k4p_pad_hook_start(void) {
 
     if (g_read_hook_installed && g_read_state_hook_installed) return 0;
 
-    Detour_Construct(&g_read_detour, DetourMode_x64);
+    Detour_Construct(&g_read_detour, DetourMode_x32);
     stub = Detour_DetourFunction(&g_read_detour,
                                 (uint64_t)(uintptr_t)scePadRead,
                                 (void *)(uintptr_t)k4p_scePadRead_hook);
@@ -98,7 +98,7 @@ int k4p_pad_hook_start(void) {
     }
     g_read_hook_installed = 1;
 
-    Detour_Construct(&g_read_state_detour, DetourMode_x64);
+    Detour_Construct(&g_read_state_detour, DetourMode_x32);
     stub = Detour_DetourFunction(&g_read_state_detour,
                                 (uint64_t)(uintptr_t)scePadReadState,
                                 (void *)(uintptr_t)k4p_scePadReadState_hook);
