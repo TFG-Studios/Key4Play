@@ -112,7 +112,10 @@ static void inspect_device(libusb_device* device, unsigned index,
     }
 
     for (i = 0; i < config->bNumInterfaces; ++i) {
-        struct libusb_interface* interface = &config->interface[i];
+        struct libusb_interface* interface;
+        if (!config->interface) break;
+        interface = &config->interface[i];
+        if (!interface->altsetting) continue;
         for (j = 0; j < (unsigned)interface->num_altsetting; ++j) {
             struct libusb_interface_descriptor* alt = &interface->altsetting[j];
             if (alt->bInterfaceClass != 0x03) continue;
@@ -168,7 +171,12 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
         return result;
     }
     g_usbd_initialized = 1;
-    return enumerate_usb_devices();
+    result = enumerate_usb_devices();
+    if (result < 0) {
+        g_usbd.exit();
+        g_usbd_initialized = 0;
+    }
+    return result;
 }
 
 K4P_PUBLIC int plugin_unload(int argc, const char* argv[]) {
