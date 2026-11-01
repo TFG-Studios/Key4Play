@@ -4,7 +4,7 @@
 
 - PS4 system software: 12.52 (owner-reported).
 - GoldHEN: v2.4b18.7 is the provisional target, not yet verified on-console.
-- Build host: Windows; GitHub Actions builds the Windows Test Lab and is planned to validate PS4 PRX builds.
+- Build host: Windows; GitHub Actions builds the Windows Test Lab and PS4 PRX.
 - Runtime requirement: all final input handling runs on PS4. The Windows Test Lab is development-only.
 
 ## Shared input core
@@ -16,14 +16,14 @@ The portable C11 module in shared/ owns:
 - Mouse buttons -> trigger/touchpad-click mapping.
 - Merge rules that preserve untouched physical DS4 state.
 
-It has no dependency on SDL, ImGui, GoldHEN or Orbis types. Test Lab simulates reports and calls the same functions that the PS4 plugin will use.
+It has no dependency on SDL, ImGui, GoldHEN or Orbis types. Test Lab simulates reports and calls the same functions used by the PS4 reader.
 
-The current boot-protocol decoder is not a universal HID descriptor parser. Non-boot gaming keyboards, NKRO reports, vendor-defined mouse reports and composite device quirks need later descriptor parsing and device-specific validation.
+The current decoder supports standard boot keyboard and mouse reports only. Non-boot gaming keyboards, NKRO reports, report IDs, vendor-defined mouse reports and composite-device quirks need descriptor parsing and device-specific validation.
 
 ## PS4 integration stages
 
-1. USB descriptor discovery (ps4/plugin): enumerate devices and classify candidate HID interfaces. No report reading or hooks.
-2. USB report reading: claim candidate interfaces, decode reports, publish a thread-safe latest input snapshot; robust disconnect/unload handling.
+1. USB boot-HID reader (ps4/plugin): resolve sceUsbd, enumerate devices, locate interrupt-IN endpoints, claim boot keyboard/mouse interfaces, read reports on separate threads, decode and log mapped states. No game hooks.
+2. Generic HID: implement report-descriptor parsing and add support for report IDs/NKRO/vendor-defined layouts.
 3. Controller merge: verify exact OrbisPadData ABI and GoldHEN hook APIs for the target build. Preserve physical DS4 fields and add only mapped inputs.
 4. Title-specific compatibility testing; no global hook by default.
 
@@ -34,7 +34,7 @@ OpenOrbis exposes scePadRead and scePadReadState and the OrbisPadData structure.
 ## Safety policy
 
 - Never update/downgrade firmware for this project.
-- Never load a PRX solely because it compiled.
-- Start with USB discovery-only and title-specific plugin loading.
-- No controller hooks until the USB reader and shared core pass tests.
-- Preserve the physical DS4 and retain a clean rollback path.
+- Never install a PRX solely because it compiled.
+- Start with USB reader diagnostics and title-specific plugin loading.
+- No controller hooks until USB input and shared-core tests pass and a rollback path is ready.
+- Preserve the physical DS4.
