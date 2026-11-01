@@ -1,11 +1,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <orbis/libkernel.h>
 #include <orbis/Usbd.h>
 #include "key4play/input_core.h"
 #include "key4play/hid_report.h"
 #include "key4play/input_snapshot.h"
+#include "key4play/pad_hook.h"
 
 /* OpenOrbis currently forward-declares this libusb ABI type only. */
 struct libusb_endpoint_descriptor {
@@ -352,6 +354,37 @@ static int find_hid_device(K4pDevice* out, int mouse) {
     return found;
 }
 
+
+static int hooks_explicitly_enabled(void) {
+    FILE* file = fopen("/data/GoldHEN/key4play.ini", "r");
+    char line[128];
+    int in_section = 0;
+    int enabled = 0;
+    if (!file) {
+        printf("[Key4Play] No key4play.ini; controller overlay remains disabled\\n");
+        return 0;
+    }
+
+    while (fgets(line, sizeof(line), file)) {
+        char* p = line;
+        char* end;
+        while (*p && isspace((unsigned char)*p)) ++p;
+        end = p + strlen(p);
+        while (end > p && isspace((unsigned char)end[-1])) *--end = '\\0';
+        if (*p == '\\0' || *p == ';' || *p == '#') continue;
+        if (*p == '[') {
+            in_section = (strcmp(p, "[Key4Play]") == 0);
+            continue;
+        }
+        if (in_section && strcmp(p, "enable_hooks=1") == 0) {
+            enabled = 1;
+            break;
+        }
+    }
+    fclose(file);
+    return enabled;
+}
+
 static int is_usb_timeout(int result) {
     return result == -7 || (uint32_t)result == 0x80240007u;
 }
@@ -494,7 +527,8 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
                               (void*)(uintptr_t)1, "k4p-mouse");
     if (result != 0) {
         printf("[Key4Play] mouse reader thread failed: %d\n", result);
-        __atomic_store_n(&g_reader_stop, 1, __ATOMIC_RELEASE);
+        k4p_pad_hook_stop();
+    __atomic_store_n(&g_reader_stop, 1, __ATOMIC_RELEASE);
         scePthreadJoin(g_reader_threads[0], 0);
         g_reader_started[0] = 0;
         g_usbd.exit();
