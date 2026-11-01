@@ -606,7 +606,10 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
 K4P_PUBLIC int plugin_unload(int argc, const char* argv[]) {
     (void)argc;
     (void)argv;
-    k4p_pad_hook_stop();
+    if (k4p_pad_hook_stop() != 0) {
+        printf("[Key4Play] Refusing plugin teardown because a Pad hook could not be restored\n");
+        return -1;
+    }
     __atomic_store_n(&g_reader_stop, 1, __ATOMIC_RELEASE);
 
     if (g_reader_started[0]) {
