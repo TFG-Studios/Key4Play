@@ -128,7 +128,7 @@ int k4p_pad_hook_start(void) {
                                 (uint64_t)(uintptr_t)scePadRead,
                                 (void *)(uintptr_t)k4p_scePadRead_hook);
     if (!stub) {
-        printf("[Key4Play] scePadRead detour installation failed\\n");
+        printf("[Key4Play] scePadRead detour installation failed\n");
         restore_detour(&g_read_detour);
         return -1;
     }
@@ -139,7 +139,7 @@ int k4p_pad_hook_start(void) {
                                 (uint64_t)(uintptr_t)scePadReadState,
                                 (void *)(uintptr_t)k4p_scePadReadState_hook);
     if (!stub) {
-        printf("[Key4Play] scePadReadState detour installation failed; rolling back\\n");
+        printf("[Key4Play] scePadReadState detour installation failed; rolling back\n");
         restore_detour(&g_read_state_detour);
         restore_detour(&g_read_detour);
         g_read_hook_installed = 0;
@@ -147,7 +147,7 @@ int k4p_pad_hook_start(void) {
     }
     g_read_state_hook_installed = 1;
 
-    printf("[Key4Play] Controller overlay hooks installed (DS4 sample preserved)\\n");
+    printf("[Key4Play] Controller overlay hooks installed (DS4 sample preserved)\n");
     return 0;
 }
 
@@ -165,5 +165,5 @@ void k4p_pad_hook_stop(void) {
         restore_detour(&g_read_detour);
         g_read_hook_installed = 0;
     }
-    printf("[Key4Play] Controller overlay hooks removed\\n");
+    printf("[Key4Play] Controller overlay hooks removed\n");
 }
