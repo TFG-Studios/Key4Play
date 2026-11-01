@@ -27,8 +27,8 @@ Do not update or downgrade the console for this project. Firmware 12.52 support 
 
 ### Windows Test Lab v0.2
 
-- Compact resizable graphical application.
-- Visual DualShock-style controller preview.
+- Compact resizable graphical application (1024x640 default).
+- Visual DualShock-style controller preview, including sticks, D-pad, face buttons, bumpers, stick clicks, touchpad and trigger bars.
 - WASD and arrow-key mapping.
 - Face buttons, bumpers, stick clicks, Share and Options mappings.
 - Mouse-to-right-stick and mouse-button-to-trigger mappings.
@@ -36,13 +36,13 @@ Do not update or downgrade the console for this project. Firmware 12.52 support 
 - Shared C11 input core and automated tests.
 - GitHub Actions Windows build and artifact packaging.
 
-### PS4 USB discovery scaffold
+### PS4 USB boot-HID reader
 
-The initial PS4 PRX scaffold dynamically resolves the USB system module functions and enumerates USB device/configuration descriptors. It identifies HID boot keyboard and mouse interfaces.
+The first PS4-side reader now resolves sceUsbd dynamically, enumerates USB HID interfaces, finds interrupt-IN endpoints, claims boot keyboard/mouse interfaces, starts separate reader threads, reads HID reports and converts them through the shared input core into diagnostic DualShock-style state.
 
-**It does not yet open devices, claim interfaces, read reports, hook controller functions, or inject inputs.** It is a discovery-only build milestone, not an installable Key4Play release.
+**It still does not inject input into games.** No scePadRead/scePadReadState hooks or OrbisPadData modifications are enabled. It supports standard boot-protocol keyboard/mouse interfaces only; NKRO and vendor-specific gaming peripherals need a generic HID descriptor parser.
 
-The PS4 build workflow downloads the pinned OpenOrbis toolchain and GoldHEN SDK headers/CRT, then compiles and packages the discovery-only PRX. The initial PRX build has passed GitHub Actions. This validates compilation only, not runtime compatibility or safe console loading.
+The PRX compiles and is packaged by GitHub Actions. This validates compilation only, not runtime compatibility or safe console loading.
 
 ## Architecture
 
@@ -50,7 +50,7 @@ The PS4 build workflow downloads the pinned OpenOrbis toolchain and GoldHEN SDK 
 USB keyboard + USB mouse
           |
           v
-     PS4 USB HID
+     PS4 USB HID reader
           |
           v
     Shared Key4Play C11 input core
@@ -59,19 +59,19 @@ USB keyboard + USB mouse
   Keyboard/mouse -> DualShock-style state
           |
           v
-  Game-facing controller integration
+  Future game-facing controller integration
           |
           v
          Game
 \`\`\`
 
-The Windows Test Lab simulates USB HID boot reports and uses the same portable mapping code intended for the PS4 plugin. Windows SDL input is not itself the same as PS4 USB input; it only creates test reports for the shared core.
+The Windows Test Lab simulates USB HID boot reports and uses the same portable mapping code as the PS4 reader. Windows SDL input is not itself the same as PS4 USB input; it only creates test reports for the shared core.
 
 ## Repository layout
 
 - shared/: portable C input core and automated tests.
 - testlab/: Windows graphical simulator.
-- ps4/plugin/: PS4 USB descriptor discovery PRX scaffold.
+- ps4/plugin/: PS4 USB boot-HID reader PRX.
 - docs/: architecture, testing and compatibility notes.
 - app/: future native PS4 configuration app.
 
@@ -85,12 +85,12 @@ The Windows Test Lab simulates USB HID boot reports and uses the same portable m
 
 ## Roadmap
 
-1. Test Lab v0.2: improve input preview and automated mapping tests.
-2. USB discovery: compile and validate the PS4 descriptor discovery scaffold.
-3. HID descriptor parser: support boot and descriptor-defined keyboard/mouse reports.
-4. PS4 USB reader: open/claim HID interfaces, read reports, handle hotplug and cleanup.
-5. Controller conversion: share mapping and merge logic with the PS4 plugin.
-6. Game-facing integration: verify Pad ABI and GoldHEN hooks, then merge input while preserving DS4.
+1. Test Lab v0.2 and automated mapping tests.
+2. PS4 USB boot-HID report reading and hotplug validation.
+3. Generic HID report-descriptor parser for NKRO/report-ID devices.
+4. Thread-safe shared input snapshots and device profiles.
+5. Verify OrbisPadData ABI and GoldHEN gamepad hooks.
+6. Merge keyboard/mouse state with physical DS4 input, initially title-specific.
 7. Native PS4 configuration app, profiles and per-title compatibility.
 
 ## Compatibility expectations
@@ -100,6 +100,6 @@ The goal is broad compatibility, not a false promise of universal support. Mouse
 ## Safety
 
 - Never install an experimental PRX solely because it compiled.
-- Start with discovery-only, title-specific plugin loading and a rollback plan.
-- Do not add global hooks until USB input and controller merge have been validated.
-- Keep the physical DS4 connected.
+- Begin with a reversible, title-specific reader-only test.
+- Do not add game-facing hooks until USB input and controller merge have been validated.
+- Keep the physical DS4 connected and maintain a rollback path.
