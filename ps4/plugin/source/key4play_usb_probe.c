@@ -478,10 +478,14 @@ static void* input_reader(void* argument) {
         } else if (is_usb_timeout(result)) {
             /* HID mice may report only on motion; never leave a stale stick deflection. */
             if (mouse) {
-                K4pPadState neutral;
-                k4p_pad_state_neutral(&neutral);
-                k4p_input_snapshot_publish_mouse(&g_k4p_input_snapshot, &neutral, 1);
-                k4p_pad_state_neutral(&previous);
+                K4pPadState idle;
+                k4p_pad_state_neutral(&idle);
+                /* Preserve held mouse buttons/triggers; expire only motion deltas. */
+                idle.buttons = previous.buttons;
+                idle.l2 = previous.l2;
+                idle.r2 = previous.r2;
+                k4p_input_snapshot_publish_mouse(&g_k4p_input_snapshot, &idle, 1);
+                previous = idle;
             }
             continue;
         } else if (result < 0) {
