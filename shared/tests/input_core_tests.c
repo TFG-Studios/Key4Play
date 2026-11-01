@@ -194,6 +194,14 @@ int main(void) {
     assert((mapped.axis_override & (K4P_AXIS_RX | K4P_AXIS_RY)) ==
            (K4P_AXIS_RX | K4P_AXIS_RY));
 
+    /* A stationary mouse must not override the physical DS4 right stick. */
+    mouse.x = 0;
+    mouse.y = 0;
+    k4p_map_mouse(&mouse, &settings, &mapped);
+    assert((mapped.axis_override & (K4P_AXIS_RX | K4P_AXIS_RY)) == 0u);
+    assert((mapped.buttons & (K4P_BTN_R2 | K4P_BTN_L2 | K4P_BTN_TOUCHPAD)) ==
+           (K4P_BTN_R2 | K4P_BTN_L2 | K4P_BTN_TOUCHPAD));
+
     /* Merge must preserve untouched physical DS4 controls and merge new ones. */
     k4p_pad_state_neutral(&physical);
     physical.buttons = K4P_BTN_CIRCLE;
