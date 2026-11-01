@@ -34,8 +34,8 @@ K4P_PUBLIC uint32_t g_pluginVersion = 0x00000200;
 typedef struct K4pUsbdApi {
     int32_t (*init)(void);
     int32_t (*exit)(void);
-    int64_t (*get_device_list)(libusb_device***);
-    void (*free_device_list)(libusb_device**, int32_t);
+    int32_t (*get_device_list)(libusb_device***);
+    int32_t (*free_device_list)(libusb_device**);
     int32_t (*get_device_descriptor)(libusb_device*, struct libusb_device_descriptor*);
     int32_t (*get_active_config_descriptor)(libusb_device*, struct libusb_config_descriptor**);
     int32_t (*free_config_descriptor)(struct libusb_config_descriptor*);
@@ -350,7 +350,7 @@ static int find_hid_device(K4pDevice* out, int mouse) {
         g_usbd.free_config_descriptor(config);
     }
 
-    g_usbd.free_device_list(devices, 1);
+    g_usbd.free_device_list(devices);
     return found;
 }
 
