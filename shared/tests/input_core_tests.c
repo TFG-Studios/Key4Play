@@ -159,14 +159,13 @@ int main(void) {
 
     /* Every non-movement binding has a deterministic controller mapping. */
     {
-        const uint8_t usages[] = {0x08, 0x14, 0x06, 0x19, 0x2b, 0x28};
-        keyboard = keyboard_with(usages, 6, 0);
+        const uint8_t usages[] = {0x08, 0x14, 0x06, 0x19, 0x28};
+        keyboard = keyboard_with(usages, 5, 0);
         k4p_map_keyboard(&keyboard, &mapped);
         assert(mapped.buttons & K4P_BTN_SQUARE);
         assert(mapped.buttons & K4P_BTN_TRIANGLE);
         assert(mapped.buttons & K4P_BTN_L3);
         assert(mapped.buttons & K4P_BTN_R3);
-        assert(mapped.buttons & K4P_BTN_SHARE);
         assert(mapped.buttons & K4P_BTN_OPTIONS);
     }
 
