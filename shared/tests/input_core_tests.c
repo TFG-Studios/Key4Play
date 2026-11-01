@@ -1,5 +1,6 @@
 #include "key4play/input_core.h"
 #include "key4play/hid_report.h"
+#include "key4play/input_snapshot.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -65,6 +66,56 @@ static void test_descriptor_parser(void) {
 
     assert(!k4p_hid_parse_report_descriptor(malformed, sizeof(malformed), &layout));
     assert(!k4p_hid_parse_report_descriptor(descriptor, 4097u, &layout));
+}
+
+
+static void test_input_snapshot(void) {
+    K4pInputSnapshot snapshot;
+    K4pInputFrame frame;
+    K4pPadState keyboard;
+    K4pPadState mouse;
+    K4pPadState combined;
+
+    k4p_input_snapshot_init(&snapshot);
+    assert(k4p_input_snapshot_read(&snapshot, &frame));
+    assert(frame.generation == 0u);
+    assert(!frame.keyboard_connected && !frame.mouse_connected);
+
+    k4p_pad_state_neutral(&keyboard);
+    keyboard.buttons = K4P_BTN_CROSS;
+    keyboard.axis_override = K4P_AXIS_LX;
+    keyboard.lx = 20;
+    k4p_input_snapshot_publish_keyboard(&snapshot, &keyboard, 1);
+    assert(k4p_input_snapshot_read(&snapshot, &frame));
+    assert(frame.keyboard_connected && frame.generation == 1u);
+    assert(frame.keyboard.buttons == K4P_BTN_CROSS);
+
+    k4p_pad_state_neutral(&mouse);
+    mouse.buttons = K4P_BTN_R2;
+    mouse.r2 = 255;
+    mouse.axis_override = K4P_AXIS_RX;
+    mouse.rx = 220;
+    k4p_input_snapshot_publish_mouse(&snapshot, &mouse, 1);
+    assert(k4p_input_snapshot_read(&snapshot, &frame));
+    assert(frame.mouse_connected && frame.generation == 2u);
+
+    k4p_input_snapshot_compose(&frame, &combined);
+    assert((combined.buttons & (K4P_BTN_CROSS | K4P_BTN_R2)) ==
+           (K4P_BTN_CROSS | K4P_BTN_R2));
+    assert(combined.lx == 20 && combined.rx == 220 && combined.r2 == 255);
+
+    /* A disconnect publishes neutral state instead of leaving stuck keys. */
+    k4p_input_snapshot_publish_keyboard(&snapshot, 0, 0);
+    assert(k4p_input_snapshot_read(&snapshot, &frame));
+    assert(!frame.keyboard_connected);
+    assert(frame.keyboard.buttons == 0u);
+    assert(frame.keyboard.lx == 128 && frame.keyboard.ly == 128);
+    assert(frame.generation == 3u);
+
+    k4p_input_snapshot_publish_mouse(&snapshot, 0, 0);
+    assert(k4p_input_snapshot_read(&snapshot, &frame));
+    assert(!frame.mouse_connected && frame.mouse.buttons == 0u);
+    assert(frame.generation == 4u);
 }
 
 int main(void) {
@@ -163,5 +214,6 @@ int main(void) {
     assert(physical.ly == 10);
     assert(physical.l2 == 70 && physical.r2 == 255);
     test_descriptor_parser();
+    test_input_snapshot();
     return 0;
 }
