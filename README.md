@@ -42,7 +42,7 @@ Do not update or downgrade the console for this project. Firmware 12.52 support 
 
 The PS4-side reader resolves sceUsbd, enumerates HID interfaces, retrieves bounded HID report descriptors where available, and decodes Report-ID/NKRO reports with boot-protocol fallback. Decoded state is published through a shared snapshot and neutralized after invalid reports, read failures, mouse idle timeouts and disconnects.
 
-An opt-in `scePadRead` / `scePadReadState` overlay is now included. It adds mapped buttons and only overrides mapped stick axes, leaving other physical DS4 fields intact. It is **disabled by default** and requires `/data/GoldHEN/key4play.ini` with `[Key4Play]` and `enable_hooks=1`. It must also be loaded only in a specific title section of GoldHEN `plugins.ini`, never `[default]`.
+An opt-in `scePadRead` / `scePadReadState` overlay is now included. It explicitly loads `libScePad`, uses GoldHEN's x64 detour engine, adds mapped buttons and only overrides mapped stick axes, leaving other physical DS4 fields intact. Hook teardown uses the decoded instruction span and accounts for chained hooks. The shared snapshot read is non-blocking on the game polling path. The overlay is **disabled by default** and requires `/data/GoldHEN/key4play.ini` with `[Key4Play]` and `enable_hooks=1`. It must also be loaded only in a specific title section of GoldHEN `plugins.ini`, never `[default]`.
 
 **Important:** the overlay and USB reader have only been cross-compiled, not run on PS4 hardware. Hook target resolution, detour behavior, physical DS4 passthrough, USB device compatibility and safe unload remain unverified. Do not install or enable this build yet.
 
@@ -103,5 +103,5 @@ The goal is broad compatibility, not a false promise of universal support. Mouse
 
 - Never install an experimental PRX solely because it compiled.
 - Begin with a reversible, title-specific reader-only test.
-- Do not add game-facing hooks until USB input and controller merge have been validated.
+- Keep the experimental game-facing hooks disabled until their runtime behavior has been validated.
 - Keep the physical DS4 connected and maintain a rollback path.
