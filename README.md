@@ -17,7 +17,7 @@ The final runtime must execute entirely on the PS4. A Windows PC is used only to
 ## Target baseline
 
 - PS4 firmware: 12.52 (owner-reported).
-- GoldHEN: **v2.4b18.9 is the provisional target**, inferred from the user's description of the 13.00-capable release; the installed build still needs confirmation on-console.
+- GoldHEN: **v2.4b18.9 confirmed by the owner** (identified from the Modded Warfare release/video); exact build string should still be checked on-console before loading a PRX.
 - Development host: Windows.
 - Build automation: GitHub Actions for Windows Test Lab and PS4 PRX.
 
