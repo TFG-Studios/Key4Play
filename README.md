@@ -34,7 +34,8 @@ Do not update or downgrade the console for this project. Firmware 12.52 support 
 - Mouse-to-right-stick and mouse-button-to-trigger mappings.
 - Sensitivity, deadzone and acceleration controls.
 - Shared C11 input core and automated tests.
-- Generic HID descriptor parser with Report ID, keyboard array/NKRO and mouse field decoding (host-side fixtures; not yet connected to PS4 USB reader).
+- Generic HID descriptor parser with Report ID, keyboard array/NKRO and mouse field decoding (host-side fixtures).
+- Lock-protected shared input snapshot with separate keyboard/mouse state, generation tracking, composition, and neutralization on invalid reports or disconnect.
 - GitHub Actions Windows build and artifact packaging.
 
 ### PS4 USB boot-HID reader
@@ -88,8 +89,8 @@ The Windows Test Lab converts SDL input into synthetic USB HID boot reports, the
 
 1. Test Lab v0.2 and automated mapping tests.
 2. PS4 USB boot-HID report reading and hotplug validation.
-3. Integrate the generic HID parser into the PS4 USB reader and validate descriptor/report requests.
-4. Thread-safe shared input snapshots and device profiles.
+3. Integrate HID report-descriptor retrieval and generic report decoding into the PS4 USB reader.
+4. Validate snapshot handoff, device hotplug and plugin shutdown.
 5. Verify OrbisPadData ABI and GoldHEN gamepad hooks.
 6. Merge keyboard/mouse state with physical DS4 input, initially title-specific.
 7. Native PS4 configuration app, profiles and per-title compatibility.
