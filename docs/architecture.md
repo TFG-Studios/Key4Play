@@ -29,7 +29,7 @@ The shared parser supports bounded descriptor-defined layouts, Report IDs, keybo
 
 ## Controller input boundary
 
-OpenOrbis exposes scePadRead and scePadReadState and the OrbisPadData structure. GoldHEN's gamepad_helper demonstrates hooking those functions and editing returned pad state. This establishes a plausible game-facing route, but not universal compatibility. The current implementation explicitly loads libScePad, uses x64 detours, adds compile-time OrbisPadData layout checks, and has size-aware restore/cleanup logic. This is cross-compiled but still needs runtime validation on the target GoldHEN build; it does not prove that every title uses these functions.
+OpenOrbis exposes scePadRead and scePadReadState and the OrbisPadData structure. GoldHEN's gamepad_helper demonstrates hooking those functions and editing returned pad state. This establishes a plausible game-facing route, but not universal compatibility. The current implementation explicitly loads and dynamically resolves libScePad exports, verifies the expected forwarding-stub signature, atomically swaps only the relative-jump displacement, and includes compile-time OrbisPadData layout checks. Unknown prologues are rejected rather than patched. This is cross-compiled but still needs runtime validation on the target GoldHEN build; it does not prove that every title uses these functions.
 
 ## Safety policy
 
