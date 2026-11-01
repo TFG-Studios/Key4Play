@@ -9,7 +9,7 @@ The experimental PRX currently contains:
 3. Bounded HID report-descriptor retrieval and parsing where the interface exposes a report descriptor.
 4. Descriptor-defined Report-ID/NKRO keyboard and mouse decoding, with standard boot-protocol fallback.
 5. Independent keyboard and mouse reader threads.
-6. A lock-protected shared input snapshot; invalid reports, mouse idle timeouts, read failures and disconnects publish neutral state.
+6. A lock-protected shared input snapshot; invalid reports, mouse motion timeouts, read failures and disconnects clear stale state. Game-thread reads are non-blocking.
 7. An opt-in gamepad overlay that detours `scePadRead` and `scePadReadState`, merges mapped button bits, overrides only mapped axes, and preserves other physical DS4 fields.
 
 The overlay uses the pinned GoldHEN SDK Detour implementation and OpenOrbis `OrbisPadData`. Compile-time checks cover the fields used by the overlay and the expected structure size. The PRX links `libScePad`, the SDK Detour/HDE64 sources, and the shared HID/input modules.
@@ -35,7 +35,7 @@ The shared mapping currently uses:
 - Space: Cross; Left Ctrl: Circle; E: Square; Q: Triangle.
 - Left Shift/R: L1/R1; C/V: L3/R3; Enter: Options.
 - Mouse movement: right stick; left/right mouse buttons: R2/L2; middle mouse button: touchpad.
-- Mouse stick state is neutralized on USB idle timeout to avoid a stuck deflection.
+- Mouse movement deltas expire on USB idle timeout so the camera does not remain deflected; held mouse buttons remain active until a release report or disconnect.
 
 Mouse-to-right-stick is controller emulation, not native mouse aiming. Sensitivity and response still need real-game tuning. The current USB transport selects one qualifying keyboard interface and one qualifying mouse interface; multiple devices of the same class, a single interface exposing both collections, unusual composite devices, vendor-specific report formats and physical-device quirks remain limitations.
 
