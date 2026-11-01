@@ -13,7 +13,7 @@ Default window: 1024x640, minimum 800x520, resizable.
 | E / Q | Square / Triangle |
 | Left Shift / R | L1 / R1 |
 | C / V | L3 / R3 |
-| Tab / Enter | Share / Options |
+| Enter | Options |
 | Mouse movement | Right stick |
 | Mouse left / right | R2 / L2 |
 | Mouse middle | Touchpad click |
