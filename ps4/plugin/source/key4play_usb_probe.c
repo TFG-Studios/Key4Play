@@ -62,6 +62,7 @@ typedef struct K4pDevice {
 static K4pUsbdApi g_usbd;
 static int g_usbd_initialized = 0;
 static int g_usbd_module = -1;
+static int g_pad_module = -1;
 static int g_sysmodule_module = -1;
 static volatile int g_reader_stop = 0;
 static OrbisPthread g_reader_threads[2];
@@ -549,6 +550,18 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
 
     printf("[Key4Play] USB readers started.\n");
     if (hooks_explicitly_enabled()) {
+        /* Match GoldHEN's gamepad_helper: ensure libScePad is loaded first. */
+        g_pad_module = load_system_module("libScePad.sprx");
+        if (g_pad_module < 0) {
+            printf("[Key4Play] failed to load libScePad: %d\\n", g_pad_module);
+            __atomic_store_n(&g_reader_stop, 1, __ATOMIC_RELEASE);
+            scePthreadJoin(g_reader_threads[0], 0);
+            scePthreadJoin(g_reader_threads[1], 0);
+            g_reader_started[0] = g_reader_started[1] = 0;
+            g_usbd.exit();
+            g_usbd_initialized = 0;
+            return g_pad_module;
+        }
         result = k4p_pad_hook_start();
         if (result < 0) {
             printf("[Key4Play] Controller hook setup failed; stopping readers\n");
