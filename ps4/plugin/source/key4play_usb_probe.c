@@ -553,7 +553,7 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
         /* Match GoldHEN's gamepad_helper: ensure libScePad is loaded first. */
         g_pad_module = load_system_module("libScePad.sprx");
         if (g_pad_module < 0) {
-            printf("[Key4Play] failed to load libScePad: %d\\n", g_pad_module);
+            printf("[Key4Play] failed to load libScePad: %d\n", g_pad_module);
             __atomic_store_n(&g_reader_stop, 1, __ATOMIC_RELEASE);
             scePthreadJoin(g_reader_threads[0], 0);
             scePthreadJoin(g_reader_threads[1], 0);
