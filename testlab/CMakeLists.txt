@@ -25,7 +25,7 @@ FetchContent_Declare(imgui
   GIT_SHALLOW TRUE)
 FetchContent_MakeAvailable(imgui)
 
-set(IMGUI_DIR "\${imgui_SOURCE_DIR}")
+set(IMGUI_DIR "${imgui_SOURCE_DIR}")
 add_library(imgui STATIC
   "\${IMGUI_DIR}/imgui.cpp"
   "\${IMGUI_DIR}/imgui_draw.cpp"
