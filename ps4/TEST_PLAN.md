@@ -1,6 +1,6 @@
 # Key4Play PS4 validation plan
 
-This is a staged validation plan for the experimental PRX. It is not an installation guide for a gameplay release.
+This is a staged validation plan for the experimental PRX. It is not an installation guide for a gameplay release. The working target is GoldHEN v2.4b18.9 on firmware 12.52, inferred from the owner's description of the 13.00-capable release; confirm the actual GoldHEN version in the console menu before proceeding.
 
 ## Before touching the console
 
