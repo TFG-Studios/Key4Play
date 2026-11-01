@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <orbis/libkernel.h>
-#include <orbis/_types/sysmodule.h>
 #include <orbis/Usbd.h>
 
 #define K4P_PUBLIC __attribute__((visibility("default")))
@@ -47,8 +46,8 @@ static int resolve_symbol(int module, const char* name, void** out) {
 }
 
 static int load_usb_api(void) {
-    int32_t (*sysmodule_is_loaded)(enum OrbisSysModule) = 0;
-    int32_t (*sysmodule_load)(enum OrbisSysModule) = 0;
+    int32_t (*sysmodule_is_loaded)(uint16_t) = 0;
+    int32_t (*sysmodule_load)(uint16_t) = 0;
     int result;
 
     g_sysmodule_module = load_system_module("libSceSysmodule.sprx");
@@ -61,7 +60,7 @@ static int load_usb_api(void) {
         resolve_symbol(g_sysmodule_module, "sceSysmoduleLoadModule",
                        (void**)&sysmodule_load) < 0) return -1;
 
-    if (!sysmodule_is_loaded(ORBIS_SYSMODULE_USBD)) {
+    if (!sysmodule_is_loaded(0x00B7u)) {
         result = sysmodule_load(ORBIS_SYSMODULE_USBD);
         if (result < 0) {
             printf("[Key4Play] sceSysmoduleLoadModule(USBD) failed: %d\n", result);
