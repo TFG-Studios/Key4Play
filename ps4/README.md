@@ -2,7 +2,7 @@
 
 ## Target environment
 
-The working target is PS4 firmware 12.52 with GoldHEN v2.4b18.9, inferred from the owner's description of installing the release associated with 13.00 support. The exact installed build is not yet confirmed. GoldHEN v2.4b18.9 explicitly added 13.00 support; that does not by itself validate Key4Play's USB ABI or Pad hook signatures on 12.52.
+The target is PS4 firmware 12.52 with GoldHEN v2.4b18.9, confirmed by the owner from the matching Modded Warfare release/video. GoldHEN v2.4b18.9 explicitly added 13.00 support. This confirms the intended GoldHEN release family, but does not validate Key4Play's USB ABI or Pad hook runtime behavior on the console.
 
 ## Current implementation
 
