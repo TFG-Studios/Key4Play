@@ -79,7 +79,21 @@ static int32_t k4p_scePadReadState_hook(int32_t handle, OrbisPadData *data) {
 }
 
 static void restore_detour(Detour *detour) {
-    if (detour && detour->StubPtr) Detour_Destroy(detour);
+    if (!detour || !detour->StubPtr) return;
+
+    /*
+     * GoldHEN SDK's Detour_Destroy() restores and frees the stub but does not
+     * release the x64 trampoline mapping. RestoreFunction() uses the exact
+     * decoded instruction span for x64 mode; the x32 branch's restore length
+     * is unsafe for this 64-bit target.
+     */
+    Detour_RestoreFunction(detour);
+    sceKernelMunmap(detour->StubPtr, detour->StubSize);
+    if (detour->TrampolinePtr)
+        sceKernelMunmap(detour->TrampolinePtr, sizeof(detour->JumpInstructions64));
+    detour->StubPtr = 0;
+    detour->StubSize = 0;
+    detour->TrampolinePtr = 0;
 }
 
 int k4p_pad_hook_start(void) {
@@ -87,7 +101,7 @@ int k4p_pad_hook_start(void) {
 
     if (g_read_hook_installed && g_read_state_hook_installed) return 0;
 
-    Detour_Construct(&g_read_detour, DetourMode_x32);
+    Detour_Construct(&g_read_detour, DetourMode_x64);
     stub = Detour_DetourFunction(&g_read_detour,
                                 (uint64_t)(uintptr_t)scePadRead,
                                 (void *)(uintptr_t)k4p_scePadRead_hook);
@@ -98,7 +112,7 @@ int k4p_pad_hook_start(void) {
     }
     g_read_hook_installed = 1;
 
-    Detour_Construct(&g_read_state_detour, DetourMode_x32);
+    Detour_Construct(&g_read_state_detour, DetourMode_x64);
     stub = Detour_DetourFunction(&g_read_state_detour,
                                 (uint64_t)(uintptr_t)scePadReadState,
                                 (void *)(uintptr_t)k4p_scePadReadState_hook);
