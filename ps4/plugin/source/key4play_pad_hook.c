@@ -1,6 +1,5 @@
 #include "key4play/pad_hook.h"
 
-#include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -10,6 +9,7 @@
 #include <orbis/libkernel.h>
 
 #include "key4play/input_snapshot.h"
+#include "key4play/pad_jump_plan.h"
 
 extern K4pInputSnapshot g_k4p_input_snapshot;
 
@@ -60,38 +60,23 @@ static int compare_exchange_u32_unaligned(uint8_t *address,
 
 static int prepare_hook(K4pJumpHook *hook, void *entry_pointer,
                         void *replacement, uint8_t zero_register_opcode) {
-    uint8_t *entry = (uint8_t *)entry_pointer;
-    int32_t old_delta;
-    int64_t new_delta;
-    unsigned i;
+    K4pPadJumpPlan plan;
+    int result;
 
-    if (!hook || !entry || !replacement) return -1;
-    if (((uintptr_t)entry & 7u) != 0u ||
-        ((uintptr_t)entry & 0x3fffu) > 0x3ff0u) return -2;
-    if (zero_register_opcode != 0xc9u && zero_register_opcode != 0xd2u)
-        return -3;
+    if (!hook || !entry_pointer || !replacement) return -1;
+    result = k4p_pad_plan_jump((const uint8_t *)entry_pointer,
+                               (uintptr_t)entry_pointer,
+                               (uintptr_t)replacement,
+                               zero_register_opcode, &plan);
+    if (result != 0) return result;
 
-    if (entry[0] != 0x31u || entry[1] != zero_register_opcode ||
-        entry[2] != 0xe9u) return -4;
-    for (i = 7u; i < 16u; ++i) {
-        if (entry[i] != 0x90u) return -5;
-    }
-
-    memcpy(&old_delta, entry + 3u, sizeof(old_delta));
-    if (old_delta >= -16 || old_delta < -(1 << 20)) return -6;
-
-    new_delta = (int64_t)(uintptr_t)replacement -
-                (int64_t)(uintptr_t)(entry + 7u);
-    if (new_delta < INT32_MIN || new_delta > INT32_MAX) return -7;
-
-    hook->entry = entry;
+    hook->entry = (uint8_t *)entry_pointer;
     hook->zero_register_opcode = zero_register_opcode;
-    hook->original_delta = (uint32_t)old_delta;
-    hook->replacement_delta = (uint32_t)(int32_t)new_delta;
-    hook->original_target = (void *)(uintptr_t)
-        ((intptr_t)(uintptr_t)(entry + 7u) + (intptr_t)old_delta);
+    hook->original_delta = plan.original_delta;
+    hook->replacement_delta = plan.replacement_delta;
+    hook->original_target = (void *)plan.original_target;
     hook->live = 0;
-    return hook->original_target ? 0 : -8;
+    return 0;
 }
 
 static int switch_hook(K4pJumpHook *hook, int enable) {
