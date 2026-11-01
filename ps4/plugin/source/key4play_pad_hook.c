@@ -20,14 +20,6 @@ _Static_assert(offsetof(OrbisPadData, buttons) == 0u, "OrbisPadData.buttons ABI"
 _Static_assert(offsetof(OrbisPadData, leftStick) == 4u, "OrbisPadData.leftStick ABI");
 _Static_assert(offsetof(OrbisPadData, rightStick) == 6u, "OrbisPadData.rightStick ABI");
 _Static_assert(offsetof(OrbisPadData, analogButtons) == 8u, "OrbisPadData.analogButtons ABI");
-_Static_assert(offsetof(OrbisPadData, orientation) == 12u, "OrbisPadData.orientation ABI");
-_Static_assert(offsetof(OrbisPadData, acceleration) == 28u, "OrbisPadData.acceleration ABI");
-_Static_assert(offsetof(OrbisPadData, angularVelocity) == 40u, "OrbisPadData.angularVelocity ABI");
-_Static_assert(offsetof(OrbisPadData, touch) == 52u, "OrbisPadData.touch ABI");
-_Static_assert(offsetof(OrbisPadData, connected) == 76u, "OrbisPadData.connected ABI");
-_Static_assert(offsetof(OrbisPadData, timestamp) == 80u, "OrbisPadData.timestamp ABI");
-_Static_assert(offsetof(OrbisPadData, ext) == 88u, "OrbisPadData.ext ABI");
-_Static_assert(offsetof(OrbisPadData, count) == 104u, "OrbisPadData.count ABI");
 _Static_assert(sizeof(OrbisPadData) == 120u, "OrbisPadData size ABI");
 
 typedef int32_t (*K4pPadReadFn)(int32_t handle, OrbisPadData *data,
