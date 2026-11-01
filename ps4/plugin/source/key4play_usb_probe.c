@@ -536,7 +536,22 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
     }
     g_reader_started[1] = 1;
 
-    printf("[Key4Play] USB readers started. Mapped state is diagnostic only.\n");
+    printf("[Key4Play] USB readers started.\\n");
+    if (hooks_explicitly_enabled()) {
+        result = k4p_pad_hook_start();
+        if (result < 0) {
+            printf("[Key4Play] Controller hook setup failed; stopping readers\\n");
+            __atomic_store_n(&g_reader_stop, 1, __ATOMIC_RELEASE);
+            scePthreadJoin(g_reader_threads[0], 0);
+            scePthreadJoin(g_reader_threads[1], 0);
+            g_reader_started[0] = g_reader_started[1] = 0;
+            g_usbd.exit();
+            g_usbd_initialized = 0;
+            return result;
+        }
+    } else {
+        printf("[Key4Play] Controller overlay disabled by configuration.\\n");
+    }
     return 0;
 }
 
