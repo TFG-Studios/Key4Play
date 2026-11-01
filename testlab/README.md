@@ -6,7 +6,7 @@ Windows-only development utility for exercising the portable Key4Play input core
 
 - Compact resizable window (1024x640 default; 800x520 minimum).
 - DualShock-style visual preview for sticks, D-pad and face buttons.
-- Keyboard mappings for sticks, D-pad, face buttons, bumpers, stick clicks, Share and Options.
+- Keyboard mappings for sticks, D-pad, face buttons, bumpers, stick clicks and Options.
 - Mouse movement to right-stick conversion; left/right/middle clicks to R2/L2/touchpad.
 - Sensitivity, deadzone and acceleration controls.
 - Live controller button bitmask, stick axes and trigger values.
