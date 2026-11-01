@@ -61,11 +61,11 @@ void draw_controller(const K4pPadState& s) {
     d->AddRectFilled({o.x+320*scale,o.y+24*scale},{o.x+(320.0F+60.0F*s.r2/255.0F)*scale,o.y+34*scale},IM_COL32(65,180,245,255),4);
     ImGui::Dummy({size.x,h+28});
 }
-void make_reports(const Uint8* keys,K4pKeyboardReport& keyboard,
-                  K4pMouseReport& mouse,float mdx,float mdy) {
-    std::memset(&keyboard,0,sizeof(keyboard));
-    std::memset(&mouse,0,sizeof(mouse));
-    keyboard.modifiers=(keys[SDL_SCANCODE_LCTRL]?K4P_MOD_LEFT_CTRL:0)|
+void make_reports(const Uint8* keys, uint8_t keyboard_packet[8],
+                  uint8_t mouse_packet[4], float mdx, float mdy) {
+    std::memset(keyboard_packet,0,8);
+    std::memset(mouse_packet,0,4);
+    keyboard_packet[0]=(keys[SDL_SCANCODE_LCTRL]?K4P_MOD_LEFT_CTRL:0)|
                        (keys[SDL_SCANCODE_LSHIFT]?K4P_MOD_LEFT_SHIFT:0);
     struct Pair {SDL_Scancode scan;uint8_t usage;};
     const Pair pairs[]={{SDL_SCANCODE_W,0x1a},{SDL_SCANCODE_A,0x04},
@@ -75,13 +75,17 @@ void make_reports(const Uint8* keys,K4pKeyboardReport& keyboard,
       {SDL_SCANCODE_RETURN,0x28},{SDL_SCANCODE_UP,0x52},{SDL_SCANCODE_DOWN,0x51},
       {SDL_SCANCODE_LEFT,0x50},{SDL_SCANCODE_RIGHT,0x4f}};
     unsigned count=0;
-    for(const auto& pair:pairs) if(keys[pair.scan]&&count<6) keyboard.keys[count++]=pair.usage;
+    for(const auto& pair:pairs)
+        if(keys[pair.scan]&&count<6) keyboard_packet[2+count++]=pair.usage;
+
     Uint32 buttons=SDL_GetMouseState(nullptr,nullptr);
-    if(buttons&SDL_BUTTON(SDL_BUTTON_LEFT)) mouse.buttons|=1;
-    if(buttons&SDL_BUTTON(SDL_BUTTON_RIGHT)) mouse.buttons|=2;
-    if(buttons&SDL_BUTTON(SDL_BUTTON_MIDDLE)) mouse.buttons|=4;
-    mouse.x=static_cast<int8_t>(std::max(-127.0f,std::min(127.0f,mdx)));
-    mouse.y=static_cast<int8_t>(std::max(-127.0f,std::min(127.0f,mdy)));
+    if(buttons&SDL_BUTTON(SDL_BUTTON_LEFT)) mouse_packet[0]|=1;
+    if(buttons&SDL_BUTTON(SDL_BUTTON_RIGHT)) mouse_packet[0]|=2;
+    if(buttons&SDL_BUTTON(SDL_BUTTON_MIDDLE)) mouse_packet[0]|=4;
+    mouse_packet[1]=static_cast<uint8_t>(static_cast<int8_t>(
+        std::max(-127.0f,std::min(127.0f,mdx))));
+    mouse_packet[2]=static_cast<uint8_t>(static_cast<int8_t>(
+        std::max(-127.0f,std::min(127.0f,mdy))));
 }
 }
 
@@ -122,11 +126,17 @@ int main(int,char**) {
         }
         ImGui_ImplOpenGL3_NewFrame();ImGui_ImplSDL2_NewFrame();ImGui::NewFrame();
         const Uint8* keys=SDL_GetKeyboardState(nullptr);
-        K4pKeyboardReport kr;K4pMouseReport mr;make_reports(keys,kr,mr,dx,dy);
-        if(!ImGui::GetIO().WantCaptureKeyboard)k4p_map_keyboard(&kr,&keyboardState);
+        uint8_t keyboardPacket[8],mousePacket[4];
+        K4pKeyboardReport kr;K4pMouseReport mr;
+        make_reports(keys,keyboardPacket,mousePacket,dx,dy);
+        if(!ImGui::GetIO().WantCaptureKeyboard &&
+           k4p_decode_boot_keyboard(keyboardPacket,sizeof(keyboardPacket),&kr))
+            k4p_map_keyboard(&kr,&keyboardState);
         else k4p_pad_state_neutral(&keyboardState);
-        if(!capture){mr.x=0;mr.y=0;}
-        k4p_map_mouse(&mr,&settings,&mouseState);
+        if(!capture){mousePacket[1]=0;mousePacket[2]=0;}
+        if(k4p_decode_boot_mouse(mousePacket,sizeof(mousePacket),&mr))
+            k4p_map_mouse(&mr,&settings,&mouseState);
+        else k4p_pad_state_neutral(&mouseState);
         k4p_pad_state_neutral(&output);
         k4p_merge_pad_state(&output,&keyboardState);k4p_merge_pad_state(&output,&mouseState);
         ++frames;
