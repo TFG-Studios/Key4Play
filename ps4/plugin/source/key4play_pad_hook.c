@@ -219,7 +219,7 @@ int k4p_pad_hook_start(void *read_target, void *read_state_target) {
         int rollback = switch_hook(&g_read_hook, 0);
         printf("[Key4Play] scePadReadState hook activation failed: %d (rollback=%d)\n",
                result, rollback);
-        return result;
+        return g_read_hook.live ? 1 : result;
     }
 
     printf("[Key4Play] Signature-checked Pad hooks installed for one DS4 handle\n");
