@@ -61,7 +61,7 @@ static int load_usb_api(void) {
                        (void**)&sysmodule_load) < 0) return -1;
 
     if (!sysmodule_is_loaded(0x00B7u)) {
-        result = sysmodule_load(ORBIS_SYSMODULE_USBD);
+        result = sysmodule_load(0x00B7u);
         if (result < 0) {
             printf("[Key4Play] sceSysmoduleLoadModule(USBD) failed: %d\n", result);
             return result;
