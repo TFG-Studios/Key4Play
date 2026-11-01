@@ -18,6 +18,16 @@ static void snapshot_lock(K4pInputSnapshot *snapshot) {
 #endif
 }
 
+static int snapshot_try_lock(K4pInputSnapshot *snapshot) {
+#if defined(_MSC_VER)
+    return _InterlockedCompareExchange(&snapshot->lock_word, 1L, 0L) == 0L;
+#else
+    long expected = 0L;
+    return __atomic_compare_exchange_n(&snapshot->lock_word, &expected, 1L,
+                                       0, __ATOMIC_ACQUIRE, __ATOMIC_RELAXED);
+#endif
+}
+
 static void snapshot_unlock(K4pInputSnapshot *snapshot) {
 #if defined(_MSC_VER)
     _InterlockedExchange(&snapshot->lock_word, 0L);
@@ -69,7 +79,8 @@ void k4p_input_snapshot_publish_mouse(K4pInputSnapshot *snapshot,
 
 int k4p_input_snapshot_read(K4pInputSnapshot *snapshot, K4pInputFrame *frame) {
     if (!snapshot || !frame) return 0;
-    snapshot_lock(snapshot);
+    /* Never spin in the gamepad polling hook; skip one sample if busy. */
+    if (!snapshot_try_lock(snapshot)) return 0;
     frame->keyboard = snapshot->keyboard;
     frame->mouse = snapshot->mouse;
     frame->generation = snapshot->generation;
