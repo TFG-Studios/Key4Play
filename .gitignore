@@ -8,3 +8,5 @@ dist/
 *.log
 .vscode/
 .idea/
+testlab/build/
+ps4/plugin/build/
