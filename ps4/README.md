@@ -1,23 +1,25 @@
 # Key4Play PS4-side development
 
-## Current milestone: USB descriptor discovery only
+## Current milestone: USB boot-HID reader (no game injection)
 
-The initial PS4-side scaffold uses the OpenOrbis sceUsbd interface to:
-1. Load/check the USB system module and resolve the USB functions.
-2. Initialize sceUsbd.
-3. Enumerate connected USB devices.
-4. Read device descriptors and active configuration descriptors.
-5. Identify HID boot keyboard and boot mouse interface descriptors.
-6. Log the scan summary and release descriptor/list allocations.
+The PS4 PRX now:
+1. Loads the USB system module and resolves sceUsbd functions dynamically.
+2. Enumerates connected USB devices and active configuration descriptors.
+3. Identifies USB HID boot keyboard and boot mouse interfaces.
+4. Finds an interrupt-IN endpoint and records its packet size.
+5. Opens and claims the selected interface.
+6. Requests HID boot protocol and starts separate keyboard and mouse reader threads.
+7. Reads interrupt reports, decodes boot keyboard/mouse packets through the shared C11 core, and logs the mapped DualShock-style state.
+8. Releases claimed interfaces and closes handles on disconnect/unload.
 
-It deliberately does not open devices, claim interfaces, submit transfers, read input reports, hook scePadRead, patch game memory, or synthesize controller input. This is a safe API/build reconnaissance stage, not a usable keyboard/mouse plugin.
+This is the first real PS4 input-reading path. It is still deliberately diagnostic-only: it does not hook scePadRead/scePadReadState, modify OrbisPadData, create a virtual controller, or send mapped input to games.
 
-The source resolves the USB and sysmodule entry points dynamically, following the approach used by existing PS4 USB homebrew. OpenOrbis declares the libusb-compatible structures under orbis/_types/libusb.h; the local include/libusb.h forwards the include expected by Usbd.h.
+Only standard HID boot keyboard and boot mouse interfaces are supported at this stage. NKRO, report-ID, vendor-defined and descriptor-defined gaming peripherals are not yet supported.
 
 ## Build prerequisites
 
-- OpenOrbis PS4 Toolchain (LLVM 18 release recommended by the current toolchain release).
-- GoldHEN Plugins SDK.
+- OpenOrbis PS4 Toolchain v0.5.4 / LLVM 18.
+- GoldHEN Plugins SDK (workflow pins a tested revision).
 - Clang, LLD and GNU Make.
 - Environment variables:
   - OO_PS4_TOOLCHAIN: extracted OpenOrbis toolchain root.
@@ -29,14 +31,15 @@ Build from the repository root:
 
 Expected output: ps4/plugin/build/key4play_usb_probe.prx.
 
-The build recipe and PRX packaging have not yet been validated by GitHub Actions. Do not install this output on the console until CI validates the build and the plugin's exact loading/rollback procedure is reviewed.
+GitHub Actions builds this PRX from the pinned toolchain/SDK and uploads an artifact. Compilation is not proof of runtime compatibility, correct USB permissions, stable thread behavior or safe console loading. Do not install it on the console until the code has been reviewed and a reversible, title-specific test plan is ready.
 
 ## Safety and next steps
 
-The plugin only enumerates descriptors when explicitly loaded. It does not poll USB interfaces. Before adding polling, validate device-list lifetime, endpoint metadata, interface claim/release, interrupt transfers, report descriptors, and unload synchronization on firmware 12.52 / the installed GoldHEN build.
+The plugin performs USB reads only when explicitly loaded. It does not inject controller input. Before hardware testing, verify plugin lifecycle and rollback. The first console test should be limited to loading/unloading and device-reader diagnostics, with the physical DS4 connected.
 
-Next safe increments:
-1. Compile this source against pinned SDK/toolchain revisions in GitHub Actions.
-2. Add a host-testable HID report descriptor parser.
-3. Implement PS4 interface open/claim and short bounded report reads with strict cleanup.
-4. Only after USB reading is stable, research and implement the game-facing controller merge.
+Next increments:
+1. Validate boot keyboard/mouse report reading and disconnect/reconnect behavior on PS4.
+2. Add a host-tested HID report-descriptor parser for non-boot devices.
+3. Add a bounded, thread-safe input snapshot and report diagnostics.
+4. Verify the exact OrbisPadData ABI and GoldHEN hook behavior for the target firmware/build.
+5. Add controller merge only after USB reading is stable.
