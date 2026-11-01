@@ -41,6 +41,6 @@ The plugin performs USB reads only when explicitly loaded. It does not inject co
 Next increments:
 1. Run static and synthetic tests for descriptor-defined reports, boot fallback and snapshot disconnect neutralization.
 2. Review PS4 USB descriptor retrieval and lifecycle assumptions against the target GoldHEN/firmware build.
-3. Verify the exact OrbisPadData ABI and GoldHEN hook behavior for the target firmware/build.
-4. Add title-specific controller overlay only after the hook path and reader lifecycle are reviewed.
+3. Validate the controller overlay's imported `scePadRead` targets and detour behavior in a controlled title on the target firmware.
+4. Confirm physical DS4 passthrough and input coexistence; tune mouse-to-stick behavior.
 5. Perform reversible PS4 smoke tests before describing any PRX as a gameplay release.
