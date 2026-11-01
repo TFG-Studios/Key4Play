@@ -476,6 +476,13 @@ static void* input_reader(void* argument) {
                 k4p_pad_state_neutral(&previous);
             }
         } else if (is_usb_timeout(result)) {
+            /* HID mice may report only on motion; never leave a stale stick deflection. */
+            if (mouse) {
+                K4pPadState neutral;
+                k4p_pad_state_neutral(&neutral);
+                k4p_input_snapshot_publish_mouse(&g_k4p_input_snapshot, &neutral, 1);
+                k4p_pad_state_neutral(&previous);
+            }
             continue;
         } else if (result < 0) {
             printf("[Key4Play] %s USB read failed: %d; reconnecting\n",
