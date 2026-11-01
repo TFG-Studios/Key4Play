@@ -5,7 +5,7 @@ LD := ld.lld
 CREATE_FSELF := $(OO_PS4_TOOLCHAIN)/bin/linux/create-fself
 
 TARGET := build/key4play_usb_probe
-OBJECTS := build/key4play_usb_probe.o build/input_core.o
+OBJECTS := build/key4play_usb_probe.o build/input_core.o build/input_snapshot.o
 CRT := build/crtprx.o
 
 CFLAGS := --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -std=c11 \
@@ -29,6 +29,9 @@ build/key4play_usb_probe.o: source/key4play_usb_probe.c | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/input_core.o: ../../shared/src/input_core.c | build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/input_snapshot.o: ../../shared/src/input_snapshot.c | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/crtprx.o: $(GOLDHEN_SDK)/crt/crtprx.c | build
