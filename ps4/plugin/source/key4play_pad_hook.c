@@ -119,14 +119,18 @@ static void restore_detour(Detour *detour) {
     detour->TrampolinePtr = 0;
 }
 
-int k4p_pad_hook_start(void) {
+int k4p_pad_hook_start(void *read_target, void *read_state_target) {
     void *stub;
 
     if (g_read_hook_installed && g_read_state_hook_installed) return 0;
+    if (!read_target || !read_state_target || read_target == read_state_target) {
+        printf("[Key4Play] Invalid or overlapping Pad export addresses\\n");
+        return -1;
+    }
 
     Detour_Construct(&g_read_detour, DetourMode_x64);
     stub = Detour_DetourFunction(&g_read_detour,
-                                (uint64_t)(uintptr_t)scePadRead,
+                                (uint64_t)(uintptr_t)read_target,
                                 (void *)(uintptr_t)k4p_scePadRead_hook);
     if (!stub) {
         printf("[Key4Play] scePadRead detour installation failed\n");
@@ -137,7 +141,7 @@ int k4p_pad_hook_start(void) {
 
     Detour_Construct(&g_read_state_detour, DetourMode_x64);
     stub = Detour_DetourFunction(&g_read_state_detour,
-                                (uint64_t)(uintptr_t)scePadReadState,
+                                (uint64_t)(uintptr_t)read_state_target,
                                 (void *)(uintptr_t)k4p_scePadReadState_hook);
     if (!stub) {
         printf("[Key4Play] scePadReadState detour installation failed; rolling back\n");
