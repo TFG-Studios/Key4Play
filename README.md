@@ -33,7 +33,7 @@ Do not update or downgrade the console for this project. Firmware 12.52 support 
 - Face buttons, bumpers, stick clicks and Options mappings. Tab/Share is intentionally unmapped because the normal PS4 Pad API does not expose Share as an ordinary game button.
 - Mouse-to-right-stick and mouse-button-to-trigger mappings.
 - Sensitivity, deadzone and acceleration controls.
-- Shared C11 input core and automated tests.
+- Shared C11 input core, HID parser, input snapshot and signature-checked Pad jump planner with automated tests.
 - Generic HID descriptor parser with Report ID, keyboard array/NKRO and mouse field decoding (host-side fixtures).
 - Lock-protected shared input snapshot with separate keyboard/mouse state, generation tracking, composition, and neutralization on invalid reports or disconnect.
 - GitHub Actions Windows build and artifact packaging.
