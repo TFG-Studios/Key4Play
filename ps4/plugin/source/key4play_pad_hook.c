@@ -93,6 +93,12 @@ static int switch_hook(K4pJumpHook *hook, int enable) {
     if (hook->entry[0] != 0x31u ||
         hook->entry[1] != hook->zero_register_opcode ||
         hook->entry[2] != 0xe9u) return -2;
+    {
+        unsigned i;
+        for (i = 7u; i < 16u; ++i) {
+            if (hook->entry[i] != 0x90u) return -10;
+        }
+    }
 
     expected = enable ? hook->original_delta : hook->replacement_delta;
     desired = enable ? hook->replacement_delta : hook->original_delta;
