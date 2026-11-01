@@ -5,7 +5,7 @@ LD := ld.lld
 CREATE_FSELF := $(OO_PS4_TOOLCHAIN)/bin/linux/create-fself
 
 TARGET := build/key4play_usb_probe
-OBJECTS := build/key4play_usb_probe.o build/input_core.o build/hid_report.o build/input_snapshot.o
+OBJECTS := build/key4play_usb_probe.o build/key4play_pad_hook.o build/input_core.o build/hid_report.o build/input_snapshot.o build/Detour.o build/HDE64.o
 CRT := build/crtprx.o
 
 CFLAGS := --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -std=c11 \
@@ -13,7 +13,7 @@ CFLAGS := --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -std=c11 \
   -I$(GOLDHEN_SDK)/include -Iinclude -I../../shared/include -Wall -Wextra
 LDFLAGS := -m elf_x86_64 -pie --script $(OO_PS4_TOOLCHAIN)/link.x -e _init \
   --eh-frame-hdr -L$(OO_PS4_TOOLCHAIN)/lib \
-  -lSceLibcInternal -lkernel -lm
+  -lSceLibcInternal -lkernel -lScePad -lm
 
 .PHONY: all clean check-env
 all: check-env $(TARGET).prx
@@ -26,6 +26,15 @@ build:
 	mkdir -p build
 
 build/key4play_usb_probe.o: source/key4play_usb_probe.c | build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/key4play_pad_hook.o: source/key4play_pad_hook.c | build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/Detour.o: $(GOLDHEN_SDK)/source/Detour.c | build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/HDE64.o: $(GOLDHEN_SDK)/source/HDE64.c | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/input_core.o: ../../shared/src/input_core.c | build
