@@ -2,99 +2,104 @@
 
 **A standalone PS4 homebrew project for USB keyboard and mouse input.**
 
-Key4Play's runtime must execute entirely on the PS4. A Windows PC is used only to develop/build the project; it is not part of the play-time setup.
+The final runtime must execute entirely on the PS4. A Windows PC is used only to develop and build the project; it is not part of the play-time setup.
 
-## Non-negotiable project requirements
+## Non-negotiable requirements
 
 - Direct USB keyboard and USB mouse connected to the PS4.
 - No Remote Play.
 - No PC, phone, external service, or external software running while playing.
 - No USB keyboard/mouse adapter.
 - GoldHEN may be used as the PS4 homebrew/plugin environment.
-- Physical DualShock 4 support should be preserved where technically possible.
-- All project changes are committed directly to `main`.
+- Preserve the physical DualShock 4 wherever technically possible.
+- All project changes are committed directly to main.
 
-## Current milestone: Phase 1 — plugin loader probe
+## Target baseline
 
-The first deliverable is a minimal GoldHEN PRX based on the upstream GoldHEN plugin template. It only reports that it loaded and displays a notification. It does not read USB input, intercept controller calls, patch game memory, or emulate a controller.
+- PS4 firmware: 12.52 (owner-reported).
+- GoldHEN: v2.4b18.7 is the provisional target; installed build not yet verified on-console.
+- Development host: Windows.
+- Build automation: GitHub Actions for Windows Test Lab and PS4 PRX.
 
-This milestone verifies the toolchain and plugin-loading path before any input work begins.
+Do not update or downgrade the console for this project. Firmware 12.52 support does not guarantee every GoldHEN plugin API or hook is identical across builds.
 
-## Firmware status
+## Current progress
 
-- Console firmware reported by the owner: **12.52**
-- GoldHEN version: **not yet identified**
-- DualShock 4 available: **yes**
-- Development OS: **Windows**
+### Windows Test Lab v0.2
 
-Do not update or downgrade the console for this project. Identify the complete GoldHEN version/build string in the GoldHEN menu before attempting to load a custom plugin. Plugin compatibility must be verified against the exact installed build.
+- Compact resizable graphical application.
+- Visual DualShock-style controller preview.
+- WASD and arrow-key mapping.
+- Face buttons, bumpers, stick clicks, Share and Options mappings.
+- Mouse-to-right-stick and mouse-button-to-trigger mappings.
+- Sensitivity, deadzone and acceleration controls.
+- Shared C11 input core and automated tests.
+- GitHub Actions Windows build and artifact packaging.
+
+### PS4 USB discovery scaffold
+
+The initial PS4 PRX scaffold dynamically resolves the USB system module functions and enumerates USB device/configuration descriptors. It identifies HID boot keyboard and mouse interfaces.
+
+**It does not yet open devices, claim interfaces, read reports, hook controller functions, or inject inputs.** It is a discovery-only build milestone, not an installable Key4Play release.
+
+The PS4 build workflow downloads the OpenOrbis toolchain and GoldHEN SDK headers/CRT, then attempts to compile the discovery-only PRX. CI success will validate compilation, not runtime compatibility or safe console loading.
 
 ## Architecture
 
-```text
+\`\`\`text
 USB keyboard + USB mouse
           |
           v
-   PS4 USB HID layer
+     PS4 USB HID
           |
           v
-   Key4Play input engine (GoldHEN PRX)
+    Shared Key4Play C11 input core
           |
           v
-   Mapping + mouse processing
+  Keyboard/mouse -> DualShock-style state
           |
           v
-   Game-facing controller input integration
+  Game-facing controller integration
           |
           v
          Game
+\`\`\`
 
-Separate PS4 homebrew configuration app:
-profiles, bindings, sensitivity, device status, diagnostics
-```
-
-The game-facing controller integration mechanism is deliberately not selected yet. We must inspect available PS4 APIs and existing GoldHEN examples before choosing a method. The final implementation must not depend on an external PC or adapter.
+The Windows Test Lab simulates USB HID boot reports and uses the same portable mapping code intended for the PS4 plugin. Windows SDL input is not itself the same as PS4 USB input; it only creates test reports for the shared core.
 
 ## Repository layout
 
-- `plugin/key4play_probe/`: Phase 1 GoldHEN PRX probe.
-- `app/`: future native PS4 configuration application.
-- `config/`: profile/configuration schema.
-- `docs/`: architecture, setup, firmware notes, and test plan.
-- `scripts/`: Windows build helper.
+- shared/: portable C input core and automated tests.
+- testlab/: Windows graphical simulator.
+- ps4/plugin/: PS4 USB descriptor discovery PRX scaffold.
+- docs/: architecture, testing and compatibility notes.
+- app/: future native PS4 configuration app.
 
 ## Development references
 
+- [GoldHEN](https://github.com/GoldHEN/GoldHEN)
 - [GoldHEN Plugin SDK](https://github.com/GoldHEN/GoldHEN_Plugins_SDK)
 - [GoldHEN Plugins Repository](https://github.com/GoldHEN/GoldHEN_Plugins_Repository)
 - [OpenOrbis PS4 Toolchain](https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain)
-
-The GoldHEN Plugin SDK requires the OpenOrbis PS4 Toolchain and LLVM 10+. Its README recommends building the SDK source alongside plugins when practical, or using `build_static.bat` on Windows for a static library.
-
-## Phase 1
-
-1. Install Git, OpenOrbis PS4 Toolchain, and LLVM on Windows.
-2. Set `OO_PS4_TOOLCHAIN` to the toolchain installation directory.
-3. Run `scripts/build.ps1`.
-4. Confirm `dist/key4play_probe.prx` is produced.
-5. Identify the installed GoldHEN version on the PS4.
-6. Review the exact plugin-loading instructions for that GoldHEN build.
-7. Test only with a reversible, title-specific plugin configuration entry.
-
-**Do not install the PRX until the GoldHEN version is confirmed and the build output has been reviewed.**
+- [ProCon PS4 keyboard/mouse plugin](https://github.com/joojofc13-wq/ProCon)
 
 ## Roadmap
 
-1. Phase 1: build/load verification.
-2. Phase 2: USB HID device discovery and report parsing.
-3. Phase 3: key mapping and mouse-to-stick processing.
-4. Phase 4: game-facing controller integration and compatibility testing.
-5. Phase 5: native PS4 configuration application and profiles.
+1. Test Lab v0.2: improve input preview and automated mapping tests.
+2. USB discovery: compile and validate the PS4 descriptor discovery scaffold.
+3. HID descriptor parser: support boot and descriptor-defined keyboard/mouse reports.
+4. PS4 USB reader: open/claim HID interfaces, read reports, handle hotplug and cleanup.
+5. Controller conversion: share mapping and merge logic with the PS4 plugin.
+6. Game-facing integration: verify Pad ABI and GoldHEN hooks, then merge input while preserving DS4.
+7. Native PS4 configuration app, profiles and per-title compatibility.
 
 ## Compatibility expectations
 
-The goal is broad game compatibility, not a false promise of universal support. Translating mouse movement into a controller's right analog stick is not equivalent to native mouse aiming; game camera acceleration, deadzones, and turn-rate limits can affect the feel. Some titles may also use different controller initialization/input paths.
+The goal is broad compatibility, not a false promise of universal support. Mouse movement is converted to right-stick movement, not native mouse aiming. Camera acceleration, deadzones and turn-rate limits differ between games. Some games may use different controller initialization or read paths.
 
 ## Safety
 
-A faulty plugin can crash a game or console session. Start with a harmless probe, use title-specific loading first, keep backups of GoldHEN configuration files, and avoid global hooks until they are necessary and tested.
+- Never install an experimental PRX solely because it compiled.
+- Start with discovery-only, title-specific plugin loading and a rollback plan.
+- Do not add global hooks until USB input and controller merge have been validated.
+- Keep the physical DS4 connected.
