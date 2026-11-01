@@ -101,7 +101,8 @@ static int switch_hook(K4pJumpHook *hook, int enable) {
     int result;
     int changed;
 
-    if (!hook || !hook->entry) return -1;
+    if (!hook) return -1;
+    if (!hook->entry) return enable ? -1 : 0;
     if (!!hook->live == !!enable) return 0;
 
     if (hook->entry[0] != 0x31u ||
