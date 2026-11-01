@@ -1,5 +1,6 @@
 #include "key4play/pad_hook.h"
 
+#include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -8,54 +9,143 @@
 #include <orbis/Pad.h>
 #include <orbis/libkernel.h>
 
-#include "Detour.h"
 #include "key4play/input_snapshot.h"
 
 extern K4pInputSnapshot g_k4p_input_snapshot;
 
-/*
- * OpenOrbis OrbisPadData ABI checks. The hook must not modify a struct whose
- * layout differs from the target ABI; fail the build rather than guessing.
- */
 _Static_assert(offsetof(OrbisPadData, buttons) == 0u, "OrbisPadData.buttons ABI");
 _Static_assert(offsetof(OrbisPadData, leftStick) == 4u, "OrbisPadData.leftStick ABI");
 _Static_assert(offsetof(OrbisPadData, rightStick) == 6u, "OrbisPadData.rightStick ABI");
 _Static_assert(offsetof(OrbisPadData, analogButtons) == 8u, "OrbisPadData.analogButtons ABI");
+_Static_assert(offsetof(OrbisPadData, connected) == 76u, "OrbisPadData.connected ABI");
 _Static_assert(sizeof(OrbisPadData) == 120u, "OrbisPadData size ABI");
 
-typedef int32_t (*K4pPadReadFn)(int32_t handle, OrbisPadData *data,
-                                int32_t count);
-typedef int32_t (*K4pPadReadStateFn)(int32_t handle, OrbisPadData *data);
+/*
+ * The exported Pad entry points on known PS4 builds may be short forwarding
+ * stubs: XOR an ABI argument to zero, then JMP rel32 to the implementation.
+ * We only patch this exact, verified shape. If a firmware/build presents a
+ * different prologue, Key4Play refuses to install the hook rather than
+ * copying/relocating unknown instructions.
+ */
+typedef struct K4pJumpHook {
+    uint8_t *entry;
+    uint8_t zero_register_opcode;
+    uint32_t original_delta;
+    uint32_t replacement_delta;
+    void *original_target;
+    int live;
+} K4pJumpHook;
 
-static Detour g_read_detour;
-static Detour g_read_state_detour;
-static int g_read_hook_installed;
-static int g_read_state_hook_installed;
+typedef int32_t (*K4pPadReadOriginalFn)(int32_t handle, OrbisPadData *data,
+                                        int32_t count, int32_t flags);
+typedef int32_t (*K4pPadReadStateOriginalFn)(int32_t handle,
+                                             OrbisPadData *data,
+                                             int32_t flags);
+
+static K4pJumpHook g_read_hook;
+static K4pJumpHook g_read_state_hook;
 static volatile int32_t g_target_handle = -1;
+
+static int compare_exchange_u32_unaligned(uint8_t *address,
+                                          uint32_t expected,
+                                          uint32_t desired) {
+    unsigned char success;
+    __asm__ volatile("lock cmpxchgl %3, %1; sete %0"
+        : "=q"(success), "+m"(*(volatile uint8_t (*)[4])address),
+          "+a"(expected)
+        : "r"(desired)
+        : "memory", "cc");
+    return success != 0;
+}
+
+static int prepare_hook(K4pJumpHook *hook, void *entry_pointer,
+                        void *replacement, uint8_t zero_register_opcode) {
+    uint8_t *entry = (uint8_t *)entry_pointer;
+    int32_t old_delta;
+    int64_t new_delta;
+    unsigned i;
+
+    if (!hook || !entry || !replacement) return -1;
+    if (((uintptr_t)entry & 7u) != 0u ||
+        ((uintptr_t)entry & 0x3fffu) > 0x3ff0u) return -2;
+    if (zero_register_opcode != 0xc9u && zero_register_opcode != 0xd2u)
+        return -3;
+
+    if (entry[0] != 0x31u || entry[1] != zero_register_opcode ||
+        entry[2] != 0xe9u) return -4;
+    for (i = 7u; i < 16u; ++i) {
+        if (entry[i] != 0x90u) return -5;
+    }
+
+    memcpy(&old_delta, entry + 3u, sizeof(old_delta));
+    if (old_delta >= -16 || old_delta < -(1 << 20)) return -6;
+
+    new_delta = (int64_t)(uintptr_t)replacement -
+                (int64_t)(uintptr_t)(entry + 7u);
+    if (new_delta < INT32_MIN || new_delta > INT32_MAX) return -7;
+
+    hook->entry = entry;
+    hook->zero_register_opcode = zero_register_opcode;
+    hook->original_delta = (uint32_t)old_delta;
+    hook->replacement_delta = (uint32_t)(int32_t)new_delta;
+    hook->original_target = (void *)(uintptr_t)
+        ((intptr_t)(uintptr_t)(entry + 7u) + (intptr_t)old_delta);
+    hook->live = 0;
+    return hook->original_target ? 0 : -8;
+}
+
+static int switch_hook(K4pJumpHook *hook, int enable) {
+    uintptr_t page;
+    uint32_t expected;
+    uint32_t desired;
+    int result;
+    int changed;
+
+    if (!hook || !hook->entry) return -1;
+    if (!!hook->live == !!enable) return 0;
+
+    if (hook->entry[0] != 0x31u ||
+        hook->entry[1] != hook->zero_register_opcode ||
+        hook->entry[2] != 0xe9u) return -2;
+
+    expected = enable ? hook->original_delta : hook->replacement_delta;
+    desired = enable ? hook->replacement_delta : hook->original_delta;
+
+    page = (uintptr_t)hook->entry & ~(uintptr_t)0x3fffu;
+    result = sceKernelMprotect((void *)page, 0x4000u, 7u);
+    if (result != 0) return result;
+
+    changed = compare_exchange_u32_unaligned(hook->entry + 3u,
+                                              expected, desired);
+    result = sceKernelMprotect((void *)page, 0x4000u, 5u);
+
+    if (!changed) return -9;
+    hook->live = enable;
+    return result;
+}
 
 static void overlay_input(int32_t handle, OrbisPadData *sample) {
     K4pInputFrame frame;
     K4pPadState mapped;
-
     int32_t expected = -1;
 
     if (!sample) return;
     if (!sample->connected) {
         expected = handle;
-        __atomic_compare_exchange_n(&g_target_handle, &expected, -1,
-                                    0, __ATOMIC_RELAXED, __ATOMIC_RELAXED);
+        __atomic_compare_exchange_n(&g_target_handle, &expected, -1, 0,
+                                    __ATOMIC_RELAXED, __ATOMIC_RELAXED);
         return;
     }
 
-    __atomic_compare_exchange_n(&g_target_handle, &expected, handle,
-                                0, __ATOMIC_RELAXED, __ATOMIC_RELAXED);
+    __atomic_compare_exchange_n(&g_target_handle, &expected, handle, 0,
+                                __ATOMIC_RELAXED, __ATOMIC_RELAXED);
     if (__atomic_load_n(&g_target_handle, __ATOMIC_RELAXED) != handle)
         return;
 
+    /* A busy snapshot skips this poll instead of stalling the game thread. */
     if (!k4p_input_snapshot_read(&g_k4p_input_snapshot, &frame)) return;
     k4p_input_snapshot_compose(&frame, &mapped);
 
-    /* Preserve every physical DS4 field not explicitly controlled by K4P. */
     sample->buttons |= mapped.buttons;
     if (mapped.axis_override & K4P_AXIS_LX) sample->leftStick.x = mapped.lx;
     if (mapped.axis_override & K4P_AXIS_LY) sample->leftStick.y = mapped.ly;
@@ -70,12 +160,13 @@ static void overlay_input(int32_t handle, OrbisPadData *sample) {
 
 static int32_t k4p_scePadRead_hook(int32_t handle, OrbisPadData *data,
                                    int32_t count) {
-    K4pPadReadFn original = (K4pPadReadFn)g_read_detour.StubPtr;
+    K4pPadReadOriginalFn original =
+        (K4pPadReadOriginalFn)g_read_hook.original_target;
     int32_t result;
     int32_t i;
 
     if (!original) return -1;
-    result = original(handle, data, count);
+    result = original(handle, data, count, 0);
     if (result <= 0 || !data || count <= 0 || result > count) return result;
 
     for (i = 0; i < result; ++i) overlay_input(handle, &data[i]);
@@ -83,109 +174,68 @@ static int32_t k4p_scePadRead_hook(int32_t handle, OrbisPadData *data,
 }
 
 static int32_t k4p_scePadReadState_hook(int32_t handle, OrbisPadData *data) {
-    K4pPadReadStateFn original =
-        (K4pPadReadStateFn)g_read_state_detour.StubPtr;
+    K4pPadReadStateOriginalFn original =
+        (K4pPadReadStateOriginalFn)g_read_state_hook.original_target;
     int32_t result;
 
     if (!original) return -1;
-    result = original(handle, data);
-    /* scePadReadState uses zero for a successful sample in the SDK example. */
+    result = original(handle, data, 0);
     if (result == 0 && data) overlay_input(handle, data);
     return result;
 }
 
-static void restore_detour(Detour *detour) {
-    uint64_t current_jump = 0;
-    int owns_entry_patch = 0;
-    int had_stub;
-
-    if (!detour) return;
-    had_stub = detour->StubPtr != 0;
-
-    if (had_stub) {
-        /*
-         * GoldHEN's x64 restore path copies exactly the decoded instruction
-         * span. Its x32 path computes an unsafe restore length for this
-         * 64-bit target, so these hooks must stay in x64 mode.
-         */
-        if (detour->FunctionPtr) {
-            const uint8_t *entry = (const uint8_t *)detour->FunctionPtr;
-            if (entry[0] == 0xffu && entry[1] == 0x25u) {
-                memcpy(&current_jump, entry + 6, sizeof(current_jump));
-                owns_entry_patch = current_jump == (uint64_t)(uintptr_t)detour->TrampolinePtr;
-            }
-        }
-
-        Detour_RestoreFunction(detour);
-        sceKernelMunmap(detour->StubPtr, detour->StubSize);
-        detour->StubPtr = 0;
-        detour->StubSize = 0;
-    }
-
-    /*
-     * If another plugin chained a detour after ours, GoldHEN restores our
-     * original instructions into our trampoline so that the later plugin's
-     * trampoline can still call through it. Keep that mapping alive.
-     */
-    if (detour->TrampolinePtr && (!had_stub || owns_entry_patch))
-        sceKernelMunmap(detour->TrampolinePtr,
-                        sizeof(detour->JumpInstructions64));
-
-    detour->TrampolinePtr = 0;
-}
-
 int k4p_pad_hook_start(void *read_target, void *read_state_target) {
-    void *stub;
+    int result;
 
-    if (g_read_hook_installed && g_read_state_hook_installed) return 0;
-    if (!read_target || !read_state_target || read_target == read_state_target) {
-        printf("[Key4Play] Invalid or overlapping Pad export addresses\n");
+    if (g_read_hook.live && g_read_state_hook.live) return 0;
+    if (!read_target || !read_state_target || read_target == read_state_target)
         return -1;
-    }
+
     __atomic_store_n(&g_target_handle, -1, __ATOMIC_RELAXED);
 
-    Detour_Construct(&g_read_detour, DetourMode_x64);
-    stub = Detour_DetourFunction(&g_read_detour,
-                                (uint64_t)(uintptr_t)read_target,
-                                (void *)(uintptr_t)k4p_scePadRead_hook);
-    if (!stub) {
-        printf("[Key4Play] scePadRead detour installation failed\n");
-        restore_detour(&g_read_detour);
-        return -1;
+    result = prepare_hook(&g_read_hook, read_target,
+                          (void *)(uintptr_t)k4p_scePadRead_hook, 0xc9u);
+    if (result != 0) {
+        printf("[Key4Play] scePadRead entry signature rejected: %d\n", result);
+        return result;
     }
-    g_read_hook_installed = 1;
 
-    Detour_Construct(&g_read_state_detour, DetourMode_x64);
-    stub = Detour_DetourFunction(&g_read_state_detour,
-                                (uint64_t)(uintptr_t)read_state_target,
-                                (void *)(uintptr_t)k4p_scePadReadState_hook);
-    if (!stub) {
-        printf("[Key4Play] scePadReadState detour installation failed; rolling back\n");
-        restore_detour(&g_read_state_detour);
-        restore_detour(&g_read_detour);
-        g_read_hook_installed = 0;
-        return -1;
+    result = prepare_hook(&g_read_state_hook, read_state_target,
+                          (void *)(uintptr_t)k4p_scePadReadState_hook, 0xd2u);
+    if (result != 0) {
+        printf("[Key4Play] scePadReadState entry signature rejected: %d\n", result);
+        return result;
     }
-    g_read_state_hook_installed = 1;
 
-    printf("[Key4Play] Controller overlay hooks installed (DS4 sample preserved)\n");
+    result = switch_hook(&g_read_hook, 1);
+    if (result != 0) {
+        printf("[Key4Play] scePadRead hook activation failed: %d\n", result);
+        return result;
+    }
+
+    result = switch_hook(&g_read_state_hook, 1);
+    if (result != 0) {
+        int rollback = switch_hook(&g_read_hook, 0);
+        printf("[Key4Play] scePadReadState hook activation failed: %d (rollback=%d)\n",
+               result, rollback);
+        return result;
+    }
+
+    printf("[Key4Play] Signature-checked Pad hooks installed for one DS4 handle\n");
     return 0;
 }
 
-void k4p_pad_hook_stop(void) {
+int k4p_pad_hook_stop(void) {
+    int state_result = switch_hook(&g_read_state_hook, 0);
+    int read_result = switch_hook(&g_read_hook, 0);
+
+    if (state_result != 0 || read_result != 0) {
+        printf("[Key4Play] Hook restore failed (state=%d read=%d); refusing normal teardown\n",
+               state_result, read_result);
+        return -1;
+    }
+
     __atomic_store_n(&g_target_handle, -1, __ATOMIC_RELAXED);
-    /*
-     * GoldHEN unload should occur at title shutdown, not while game threads
-     * are actively polling. Detours are restored before their trampolines
-     * are released, following the upstream GoldHEN plugin lifecycle pattern.
-     */
-    if (g_read_state_hook_installed) {
-        restore_detour(&g_read_state_detour);
-        g_read_state_hook_installed = 0;
-    }
-    if (g_read_hook_installed) {
-        restore_detour(&g_read_detour);
-        g_read_hook_installed = 0;
-    }
-    printf("[Key4Play] Controller overlay hooks removed\n");
+    printf("[Key4Play] Signature-checked Pad hooks restored\n");
+    return 0;
 }
