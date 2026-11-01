@@ -8,13 +8,14 @@ The PS4 PRX now:
 3. Identifies USB HID boot keyboard and boot mouse interfaces.
 4. Finds an interrupt-IN endpoint and records its packet size.
 5. Opens and claims the selected interface.
-6. Requests HID boot protocol and starts separate keyboard and mouse reader threads.
-7. Reads interrupt reports, decodes boot keyboard/mouse packets through the shared C11 core, and logs the mapped DualShock-style state.
-8. Releases claimed interfaces and closes handles on disconnect/unload.
+6. Reads HID class descriptors and requests bounded report descriptors where available.
+7. Parses descriptor-defined report layouts and reads Report-ID/NKRO keyboard and mouse reports; falls back to boot protocol for standard boot interfaces.
+8. Starts separate keyboard and mouse reader threads, publishes decoded states into the shared snapshot, and neutralizes a device state on invalid reports, read failures and disconnects.
+9. Releases claimed interfaces and closes handles on disconnect/unload.
 
 This is the first real PS4 input-reading path. It is still deliberately diagnostic-only: it does not hook scePadRead/scePadReadState, modify OrbisPadData, create a virtual controller, or send mapped input to games.
 
-Only standard HID boot keyboard and boot mouse interfaces are currently read by the PS4 transport. The generic report-descriptor parser is host-tested but is not yet wired into USB descriptor requests or this reader.
+The PS4 transport now attempts descriptor-defined HID reports first, including Report IDs and NKRO key bitmaps, and falls back to standard boot protocol when descriptor retrieval/parsing is unavailable. This remains a bounded first implementation: vendor-specific layouts, unusual composite interfaces, multiple devices of the same class, and physical-device quirks still require testing.
 
 ## Build prerequisites
 
@@ -38,9 +39,8 @@ GitHub Actions builds this PRX from the pinned toolchain/SDK and uploads an arti
 The plugin performs USB reads only when explicitly loaded. It does not inject controller input. Before hardware testing, verify plugin lifecycle and rollback. The first console test should be limited to loading/unloading and device-reader diagnostics, with the physical DS4 connected.
 
 Next increments:
-1. Validate boot keyboard/mouse report reading and disconnect/reconnect behavior on PS4.
-2. Add a host-tested HID report-descriptor parser for non-boot devices.
-3. Integrate HID report-descriptor retrieval and generic report decoding into the PS4 USB transport.
-4. Validate the reader's device lifecycle and snapshot handoff, including unplug/replug and shutdown.
-5. Verify the exact OrbisPadData ABI and GoldHEN hook behavior for the target firmware/build.
-6. Add controller merge only after USB reading is stable.
+1. Run static and synthetic tests for descriptor-defined reports, boot fallback and snapshot disconnect neutralization.
+2. Review PS4 USB descriptor retrieval and lifecycle assumptions against the target GoldHEN/firmware build.
+3. Verify the exact OrbisPadData ABI and GoldHEN hook behavior for the target firmware/build.
+4. Add title-specific controller overlay only after the hook path and reader lifecycle are reviewed.
+5. Perform reversible PS4 smoke tests before describing any PRX as a gameplay release.
