@@ -38,4 +38,4 @@ The Windows workflow builds the x64 GUI, runs shared-core unit tests, and upload
 
 ## Shared core
 
-shared/include/key4play/input_core.h and shared/src/input_core.c contain the C-compatible input model and mapping logic. Keep this module free of SDL, ImGui and PS4-specific types so it can be compiled by both desktop and PS4 toolchains.
+`shared/` contains the C-compatible input model, HID descriptor parser, input snapshot and pure Pad forwarding-stub jump planner. The jump planner validates the expected entry signature and computes rel32 offsets without writing to executable memory. Keep this module free of SDL, ImGui and PS4-specific types so it can be compiled by both desktop and PS4 toolchains.
