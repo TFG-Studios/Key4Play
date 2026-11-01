@@ -4,6 +4,7 @@
 #include <orbis/libkernel.h>
 #include <orbis/Usbd.h>
 #include "key4play/input_core.h"
+#include "key4play/input_snapshot.h"
 
 /* OpenOrbis currently forward-declares this libusb ABI type only. */
 struct libusb_endpoint_descriptor {
@@ -60,6 +61,7 @@ static int g_sysmodule_module = -1;
 static volatile int g_reader_stop = 0;
 static OrbisPthread g_reader_threads[2];
 static int g_reader_started[2] = {0, 0};
+static K4pInputSnapshot g_input_snapshot;
 
 static int load_system_module(const char* filename) {
     const char* sandbox = sceKernelGetFsSandboxRandomWord();
@@ -247,6 +249,7 @@ static void* input_reader(void* argument) {
     K4pDevice device;
     K4pPadState previous;
     K4pSettings settings;
+    int published_connected = 0;
     uint8_t packet[64];
     memset(&device, 0, sizeof(device));
     k4p_pad_state_neutral(&previous);
@@ -258,9 +261,16 @@ static void* input_reader(void* argument) {
 
         if (!device.handle) {
             if (!find_boot_device(&device, mouse)) {
+                if (published_connected) {
+                    if (mouse) k4p_input_snapshot_publish_mouse(&g_input_snapshot, 0, 0);
+                    else k4p_input_snapshot_publish_keyboard(&g_input_snapshot, 0, 0);
+                    published_connected = 0;
+                    k4p_pad_state_neutral(&previous);
+                }
                 sceKernelUsleep(500000);
                 continue;
             }
+            published_connected = 1;
         }
 
         memset(packet, 0, sizeof(packet));
@@ -278,6 +288,15 @@ static void* input_reader(void* argument) {
                 K4pKeyboardReport report;
                 valid = k4p_decode_boot_keyboard(packet, (size_t)transferred, &report);
                 if (valid) k4p_map_keyboard(&report, &current);
+            }
+
+            if (valid) {
+                if (mouse) k4p_input_snapshot_publish_mouse(&g_input_snapshot, &current, 1);
+                else k4p_input_snapshot_publish_keyboard(&g_input_snapshot, &current, 1);
+            } else {
+                k4p_pad_state_neutral(&current);
+                if (mouse) k4p_input_snapshot_publish_mouse(&g_input_snapshot, &current, 1);
+                else k4p_input_snapshot_publish_keyboard(&g_input_snapshot, &current, 1);
             }
 
             if (valid && !same_pad(&current, &previous)) {
@@ -300,6 +319,8 @@ static void* input_reader(void* argument) {
     }
 
     close_device(&device);
+    if (mouse) k4p_input_snapshot_publish_mouse(&g_input_snapshot, 0, 0);
+    else k4p_input_snapshot_publish_keyboard(&g_input_snapshot, 0, 0);
     return 0;
 }
 
@@ -319,6 +340,7 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
         return result;
     }
     g_usbd_initialized = 1;
+    k4p_input_snapshot_init(&g_input_snapshot);
     __atomic_store_n(&g_reader_stop, 0, __ATOMIC_RELEASE);
 
     result = scePthreadCreate(&g_reader_threads[0], 0, input_reader, 0, "k4p-keyboard");
