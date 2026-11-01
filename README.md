@@ -30,7 +30,7 @@ Do not update or downgrade the console for this project. Firmware 12.52 support 
 - Compact resizable graphical application (1024x640 default).
 - Visual DualShock-style controller preview, including sticks, D-pad, face buttons, bumpers, stick clicks, touchpad and trigger bars.
 - WASD and arrow-key mapping.
-- Face buttons, bumpers, stick clicks, Share and Options mappings.
+- Face buttons, bumpers, stick clicks and Options mappings. Tab/Share is intentionally unmapped because the normal PS4 Pad API does not expose Share as an ordinary game button.
 - Mouse-to-right-stick and mouse-button-to-trigger mappings.
 - Sensitivity, deadzone and acceleration controls.
 - Shared C11 input core and automated tests.
