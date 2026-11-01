@@ -49,7 +49,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: GoldHEN/GoldHEN_Plugins_SDK
-          ref: main
+          ref: bcea3c7ef01dac6d7f9f49ebf9e90fe66d86f5f7
           path: goldhen-sdk
 
       - name: Build discovery-only PRX
