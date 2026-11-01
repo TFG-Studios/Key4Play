@@ -31,12 +31,27 @@ static Detour g_read_detour;
 static Detour g_read_state_detour;
 static int g_read_hook_installed;
 static int g_read_state_hook_installed;
+static volatile int32_t g_target_handle = -1;
 
-static void overlay_input(OrbisPadData *sample) {
+static void overlay_input(int32_t handle, OrbisPadData *sample) {
     K4pInputFrame frame;
     K4pPadState mapped;
 
+    int32_t expected = -1;
+
     if (!sample) return;
+    if (!sample->connected) {
+        expected = handle;
+        __atomic_compare_exchange_n(&g_target_handle, &expected, -1,
+                                    0, __ATOMIC_RELAXED, __ATOMIC_RELAXED);
+        return;
+    }
+
+    __atomic_compare_exchange_n(&g_target_handle, &expected, handle,
+                                0, __ATOMIC_RELAXED, __ATOMIC_RELAXED);
+    if (__atomic_load_n(&g_target_handle, __ATOMIC_RELAXED) != handle)
+        return;
+
     if (!k4p_input_snapshot_read(&g_k4p_input_snapshot, &frame)) return;
     k4p_input_snapshot_compose(&frame, &mapped);
 
@@ -63,7 +78,7 @@ static int32_t k4p_scePadRead_hook(int32_t handle, OrbisPadData *data,
     result = original(handle, data, count);
     if (result <= 0 || !data || count <= 0 || result > count) return result;
 
-    for (i = 0; i < result; ++i) overlay_input(&data[i]);
+    for (i = 0; i < result; ++i) overlay_input(handle, &data[i]);
     return result;
 }
 
@@ -75,7 +90,7 @@ static int32_t k4p_scePadReadState_hook(int32_t handle, OrbisPadData *data) {
     if (!original) return -1;
     result = original(handle, data);
     /* scePadReadState uses zero for a successful sample in the SDK example. */
-    if (result == 0 && data) overlay_input(data);
+    if (result == 0 && data) overlay_input(handle, data);
     return result;
 }
 
