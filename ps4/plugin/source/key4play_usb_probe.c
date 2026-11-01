@@ -4,6 +4,7 @@
 #include <orbis/libkernel.h>
 #include <orbis/Usbd.h>
 #include "key4play/input_core.h"
+#include "key4play/hid_report.h"
 #include "key4play/input_snapshot.h"
 
 /* OpenOrbis currently forward-declares this libusb ABI type only. */
@@ -50,8 +51,10 @@ typedef struct K4pDevice {
     libusb_device_handle* handle;
     int32_t interface_number;
     uint8_t endpoint_in;
-    uint8_t packet_size;
+    uint16_t packet_size;
+    uint8_t generic_report;
     int claimed;
+    K4pHidLayout layout;
 } K4pDevice;
 
 static K4pUsbdApi g_usbd;
@@ -138,14 +141,108 @@ static void close_device(K4pDevice* device) {
     memset(device, 0, sizeof(*device));
 }
 
-static int find_boot_device(K4pDevice* out, int mouse) {
+static int get_report_descriptor_length(const unsigned char* extra,
+                                         int32_t extra_length,
+                                         uint16_t* report_length) {
+    int32_t offset = 0;
+    if (!extra || extra_length <= 0 || !report_length) return 0;
+
+    while (offset + 2 <= extra_length) {
+        uint8_t descriptor_length = extra[offset];
+        uint8_t descriptor_type = extra[offset + 1];
+        int32_t i;
+
+        if (descriptor_length < 2u || offset + descriptor_length > extra_length)
+            return 0;
+
+        if (descriptor_type == 0x21u) { /* HID class descriptor. */
+            uint8_t descriptor_count;
+            if (descriptor_length < 6u) return 0;
+            descriptor_count = extra[offset + 5];
+            if ((uint32_t)6u + (uint32_t)descriptor_count * 3u >
+                descriptor_length) return 0;
+
+            for (i = 0; i < descriptor_count; ++i) {
+                int32_t entry = offset + 6 + i * 3;
+                if (extra[entry] == 0x22u) { /* Report descriptor. */
+                    uint16_t size = (uint16_t)extra[entry + 1] |
+                                    ((uint16_t)extra[entry + 2] << 8);
+                    if (size == 0u || size > 4096u) return 0;
+                    *report_length = size;
+                    return 1;
+                }
+            }
+        }
+        offset += descriptor_length;
+    }
+    return 0;
+}
+
+static int layout_has_collection(const K4pHidLayout* layout, int mouse) {
+    unsigned i;
+    uint8_t wanted = mouse ? K4P_HID_COLLECTION_MOUSE
+                           : K4P_HID_COLLECTION_KEYBOARD;
+    if (!layout) return 0;
+    for (i = 0; i < layout->field_count; ++i) {
+        if (layout->fields[i].collection == wanted) return 1;
+    }
+    return 0;
+}
+
+static int layout_has_report(const K4pHidLayout* layout, uint8_t report_id,
+                             int mouse) {
+    unsigned i;
+    uint8_t wanted = mouse ? K4P_HID_COLLECTION_MOUSE
+                           : K4P_HID_COLLECTION_KEYBOARD;
+    if (!layout) return 0;
+    for (i = 0; i < layout->field_count; ++i) {
+        if (layout->fields[i].collection == wanted &&
+            layout->fields[i].report_id == report_id) return 1;
+    }
+    return 0;
+}
+
+static int fetch_hid_layout(libusb_device_handle* handle,
+                            const struct libusb_interface_descriptor* alt,
+                            uint16_t packet_size, int mouse,
+                            K4pHidLayout* layout) {
+    unsigned char report_descriptor[4096];
+    uint16_t report_length = 0;
+    int transferred;
+    unsigned id;
+    int matching_report = 0;
+
+    if (!handle || !alt || !layout ||
+        !get_report_descriptor_length(alt->extra, alt->extra_length,
+                                       &report_length)) return 0;
+
+    transferred = g_usbd.control_transfer(handle, 0x81u, 0x06u, 0x2200u,
+        alt->bInterfaceNumber, report_descriptor, report_length, 1000u);
+    if (transferred <= 0 || transferred > (int)sizeof(report_descriptor))
+        return 0;
+    if (!k4p_hid_parse_report_descriptor(report_descriptor,
+                                         (size_t)transferred, layout) ||
+        !layout_has_collection(layout, mouse)) return 0;
+
+    for (id = 0; id < 256u; ++id) {
+        if (layout->report_bytes[id] != 0u &&
+            layout_has_report(layout, (uint8_t)id, mouse)) {
+            if (layout->report_bytes[id] > packet_size) return 0;
+            matching_report = 1;
+        }
+    }
+    return matching_report;
+}
+
+static int find_hid_device(K4pDevice* out, int mouse) {
     libusb_device** devices = 0;
     int count, i, found = 0;
-    const uint8_t wanted_protocol = mouse ? 0x02 : 0x01;
+    const uint8_t wanted_protocol = mouse ? 0x02u : 0x01u;
 
+    if (!out) return 0;
     count = g_usbd.get_device_list(&devices);
     if (count < 0 || !devices) {
-        printf("[Key4Play] USB list failed: %d\n", count);
+        printf("[Key4Play] USB list failed: %d\\n", count);
         return 0;
     }
 
@@ -169,27 +266,31 @@ static int find_boot_device(K4pDevice* out, int mouse) {
             int alt_index;
             if (!interface->altsetting) continue;
 
-            for (alt_index = 0; alt_index < interface->num_altsetting && !found; ++alt_index) {
+            for (alt_index = 0;
+                 alt_index < interface->num_altsetting && !found;
+                 ++alt_index) {
                 struct libusb_interface_descriptor* alt = &interface->altsetting[alt_index];
                 unsigned int endpoint_index;
                 uint8_t endpoint_in = 0;
-                uint8_t packet_size = 0;
+                uint16_t packet_size = 0;
                 libusb_device_handle* handle = 0;
+                K4pHidLayout layout;
+                int generic = 0;
                 int result;
 
-                if (alt->bInterfaceClass != 0x03 ||
-                    alt->bInterfaceSubClass != 0x01 ||
-                    alt->bInterfaceProtocol != wanted_protocol ||
+                if (alt->bInterfaceClass != 0x03u ||
                     alt->bAlternateSetting != 0 || !alt->endpoint) continue;
 
-                for (endpoint_index = 0; endpoint_index < alt->bNumEndpoints; ++endpoint_index) {
-                    const struct libusb_endpoint_descriptor* endpoint = &alt->endpoint[endpoint_index];
+                for (endpoint_index = 0;
+                     endpoint_index < alt->bNumEndpoints; ++endpoint_index) {
+                    const struct libusb_endpoint_descriptor* endpoint =
+                        &alt->endpoint[endpoint_index];
                     uint16_t max_packet = endpoint->wMaxPacketSize & 0x07ffu;
                     if ((endpoint->bmAttributes & 0x03u) != 0x03u) continue;
                     if (!(endpoint->bEndpointAddress & 0x80u)) continue;
-                    if (!max_packet || max_packet > 64) continue;
+                    if (!max_packet || max_packet > K4P_HID_MAX_REPORT_BYTES) continue;
                     endpoint_in = endpoint->bEndpointAddress;
-                    packet_size = (uint8_t)max_packet;
+                    packet_size = max_packet;
                     break;
                 }
                 if (!endpoint_in) continue;
@@ -202,29 +303,46 @@ static int find_boot_device(K4pDevice* out, int mouse) {
                     continue;
                 }
 
-                /* HID SET_PROTOCOL: select boot protocol (wValue = 0). */
-                result = g_usbd.control_transfer(handle, 0x21, 0x0b, 0,
-                    alt->bInterfaceNumber, 0, 0, 500);
-                if (result < 0) {
-                    g_usbd.release_interface(handle, alt->bInterfaceNumber);
-                    g_usbd.close(handle);
-                    continue;
+                /* Prefer descriptor-defined reports; fall back to boot mode. */
+                generic = fetch_hid_layout(handle, alt, packet_size,
+                                           mouse, &layout);
+                if (!generic) {
+                    if (alt->bInterfaceSubClass != 0x01u ||
+                        alt->bInterfaceProtocol != wanted_protocol) {
+                        g_usbd.release_interface(handle, alt->bInterfaceNumber);
+                        g_usbd.close(handle);
+                        continue;
+                    }
+
+                    /* HID SET_PROTOCOL: select boot protocol (wValue = 0). */
+                    result = g_usbd.control_transfer(handle, 0x21u, 0x0bu, 0u,
+                        alt->bInterfaceNumber, 0, 0, 500u);
+                    if (result < 0) {
+                        g_usbd.release_interface(handle, alt->bInterfaceNumber);
+                        g_usbd.close(handle);
+                        continue;
+                    }
+
+                    /* SET_IDLE is advisory; some devices do not implement it. */
+                    g_usbd.control_transfer(handle, 0x21u, 0x0au, 0x0400u,
+                        alt->bInterfaceNumber, 0, 0, 500u);
                 }
 
-                /* SET_IDLE is advisory; some devices do not implement it. */
-                g_usbd.control_transfer(handle, 0x21, 0x0a, 0x0400,
-                    alt->bInterfaceNumber, 0, 0, 500);
-
+                memset(out, 0, sizeof(*out));
                 out->handle = handle;
                 out->interface_number = alt->bInterfaceNumber;
                 out->endpoint_in = endpoint_in;
                 out->packet_size = packet_size;
+                out->generic_report = (uint8_t)(generic != 0);
                 out->claimed = 1;
+                if (generic) out->layout = layout;
                 found = 1;
-                printf("[Key4Play] %s attached VID=%04x PID=%04x interface=%u IN=0x%02x packet=%u\n",
+
+                printf("[Key4Play] %s attached VID=%04x PID=%04x interface=%u IN=0x%02x packet=%u mode=%s\\n",
                     mouse ? "Mouse" : "Keyboard", descriptor.idVendor,
                     descriptor.idProduct, alt->bInterfaceNumber,
-                    endpoint_in, packet_size);
+                    endpoint_in, packet_size,
+                    generic ? "descriptor" : "boot");
             }
         }
         g_usbd.free_config_descriptor(config);
@@ -250,7 +368,7 @@ static void* input_reader(void* argument) {
     K4pPadState previous;
     K4pSettings settings;
     int published_connected = 0;
-    uint8_t packet[64];
+    uint8_t packet[K4P_HID_MAX_REPORT_BYTES];
     memset(&device, 0, sizeof(device));
     k4p_pad_state_neutral(&previous);
     k4p_settings_default(&settings);
@@ -260,7 +378,7 @@ static void* input_reader(void* argument) {
         int result;
 
         if (!device.handle) {
-            if (!find_boot_device(&device, mouse)) {
+            if (!find_hid_device(&device, mouse)) {
                 if (published_connected) {
                     if (mouse) k4p_input_snapshot_publish_mouse(&g_input_snapshot, 0, 0);
                     else k4p_input_snapshot_publish_keyboard(&g_input_snapshot, 0, 0);
@@ -280,7 +398,23 @@ static void* input_reader(void* argument) {
         if (result == 0 && transferred > 0 && transferred <= (int)sizeof(packet)) {
             K4pPadState current;
             int valid = 0;
-            if (mouse) {
+            if (device.generic_report) {
+                uint8_t report_id = device.layout.uses_report_ids ? packet[0] : 0u;
+                /* Ignore reports belonging to another collection (e.g. Consumer Control). */
+                if (!layout_has_report(&device.layout, report_id, mouse))
+                    continue;
+                if (mouse) {
+                    K4pMouseReport report;
+                    valid = k4p_hid_decode_mouse(&device.layout, packet,
+                                                  (size_t)transferred, &report);
+                    if (valid) k4p_map_mouse(&report, &settings, &current);
+                } else {
+                    K4pKeyboardReport report;
+                    valid = k4p_hid_decode_keyboard(&device.layout, packet,
+                                                     (size_t)transferred, &report);
+                    if (valid) k4p_map_keyboard(&report, &current);
+                }
+            } else if (mouse) {
                 K4pMouseReport report;
                 valid = k4p_decode_boot_mouse(packet, (size_t)transferred, &report);
                 if (valid) k4p_map_mouse(&report, &settings, &current);
