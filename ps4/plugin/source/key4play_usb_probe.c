@@ -313,6 +313,10 @@ static void* input_reader(void* argument) {
         } else if (result < 0) {
             printf("[Key4Play] %s USB read failed: %d; reconnecting\n",
                    mouse ? "Mouse" : "Keyboard", result);
+            if (mouse) k4p_input_snapshot_publish_mouse(&g_input_snapshot, 0, 0);
+            else k4p_input_snapshot_publish_keyboard(&g_input_snapshot, 0, 0);
+            published_connected = 0;
+            k4p_pad_state_neutral(&previous);
             close_device(&device);
             sceKernelUsleep(250000);
         }
