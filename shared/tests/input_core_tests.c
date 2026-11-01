@@ -1,6 +1,7 @@
 #include "key4play/input_core.h"
 #include "key4play/hid_report.h"
 #include "key4play/input_snapshot.h"
+#include "key4play/pad_jump_plan.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -68,6 +69,61 @@ static void test_descriptor_parser(void) {
     assert(!k4p_hid_parse_report_descriptor(descriptor, 4097u, &layout));
 }
 
+
+static void test_pad_jump_plan(void) {
+    uint8_t stub[16];
+    K4pPadJumpPlan plan;
+    int32_t original_delta = -0x200;
+    unsigned i;
+
+    memset(stub, 0, sizeof(stub));
+    stub[0] = 0x31u;
+    stub[1] = 0xc9u; /* xor ecx, ecx */
+    stub[2] = 0xe9u; /* jmp rel32 */
+    memcpy(stub + 3u, &original_delta, sizeof(original_delta));
+    for (i = 7u; i < 16u; ++i) stub[i] = 0x90u;
+
+    assert(k4p_pad_plan_jump(stub, 0x10000000u, 0x10001000u,
+                             0xc9u, &plan) == 0);
+    assert(plan.original_delta == (uint32_t)original_delta);
+    assert(plan.replacement_delta == 0x0ff9u);
+    assert(plan.original_target == 0x0ffffe07u);
+
+    /* The second Pad entry uses xor edx, edx. */
+    stub[1] = 0xd2u;
+    assert(k4p_pad_plan_jump(stub, 0x10000000u, 0x10002000u,
+                             0xd2u, &plan) == 0);
+
+    stub[1] = 0xc9u;
+    stub[7] = 0x00u;
+    assert(k4p_pad_plan_jump(stub, 0x10000000u, 0x10001000u,
+                             0xc9u, &plan) == -5);
+    stub[7] = 0x90u;
+
+    stub[1] = 0x90u;
+    assert(k4p_pad_plan_jump(stub, 0x10000000u, 0x10001000u,
+                             0xc9u, &plan) == -4);
+    stub[1] = 0xc9u;
+
+    original_delta = -8;
+    memcpy(stub + 3u, &original_delta, sizeof(original_delta));
+    assert(k4p_pad_plan_jump(stub, 0x10000000u, 0x10001000u,
+                             0xc9u, &plan) == -6);
+
+    original_delta = -0x200000;
+    memcpy(stub + 3u, &original_delta, sizeof(original_delta));
+    assert(k4p_pad_plan_jump(stub, 0x10000000u, 0x10001000u,
+                             0xc9u, &plan) == -6);
+
+    original_delta = -0x200;
+    memcpy(stub + 3u, &original_delta, sizeof(original_delta));
+    assert(k4p_pad_plan_jump(stub, 0x10000001u, 0x10001000u,
+                             0xc9u, &plan) == -2);
+    assert(k4p_pad_plan_jump(stub, 0x10003ff8u, 0x10004000u,
+                             0xc9u, &plan) == -2);
+    assert(k4p_pad_plan_jump(stub, 0x10000000u, 0x9000000000ULL,
+                             0xc9u, &plan) == -9);
+}
 
 static void test_input_snapshot(void) {
     K4pInputSnapshot snapshot;
@@ -227,5 +283,6 @@ int main(void) {
     assert(physical.l2 == 70 && physical.r2 == 255);
     test_descriptor_parser();
     test_input_snapshot();
+    test_pad_jump_plan();
     return 0;
 }
