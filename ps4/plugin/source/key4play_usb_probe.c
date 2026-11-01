@@ -596,6 +596,9 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
             g_usbd.exit();
             g_usbd_initialized = 0;
             return result;
+        } else if (result > 0) {
+            /* Keep the PRX resident if a partial hook could not be rolled back. */
+            printf("[Key4Play] Warning: only scePadRead hook is active; keep plugin loaded.\n");
         }
     } else {
         printf("[Key4Play] Controller overlay disabled by configuration.\n");
