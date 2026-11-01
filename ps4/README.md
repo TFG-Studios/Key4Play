@@ -33,7 +33,7 @@ The shared mapping currently uses:
 - WASD: left stick.
 - Arrow keys: D-pad.
 - Space: Cross; Left Ctrl: Circle; E: Square; Q: Triangle.
-- Left Shift/R: L1/R1; C/V: L3/R3; Enter: Options.
+- Left Shift/R: L1/R1; C/V: L3/R3; Enter: Options. Tab/Share is intentionally unmapped because the normal PS4 Pad API does not expose Share as an ordinary game button.
 - Mouse movement: right stick; left/right mouse buttons: R2/L2; middle mouse button: touchpad.
 - Mouse movement deltas expire on USB idle timeout so the camera does not remain deflected; held mouse buttons remain active until a release report or disconnect.
 
