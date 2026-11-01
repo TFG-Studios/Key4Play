@@ -13,7 +13,7 @@ CFLAGS := --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -std=c11 \
   -I$(GOLDHEN_SDK)/include -Iinclude -I../../shared/include -Wall -Wextra
 LDFLAGS := -m elf_x86_64 -pie --script $(OO_PS4_TOOLCHAIN)/link.x -e _init \
   --eh-frame-hdr -L$(OO_PS4_TOOLCHAIN)/lib \
-  -lSceLibcInternal -lkernel -lScePad -lm
+  -lSceLibcInternal -lkernel -lm
 
 .PHONY: all clean check-env
 all: check-env $(TARGET).prx
