@@ -427,7 +427,7 @@ static void* input_reader(void* argument) {
 
         memset(packet, 0, sizeof(packet));
         result = g_usbd.interrupt_transfer(device.handle, device.endpoint_in,
-            packet, device.packet_size, &transferred, 100);
+            packet, device.packet_size, &transferred, 10);
 
         if (result == 0 && transferred > 0 && transferred <= (int)sizeof(packet)) {
             K4pPadState current;
@@ -476,6 +476,18 @@ static void* input_reader(void* argument) {
             } else if (!valid && !mouse) {
                 k4p_pad_state_neutral(&previous);
             }
+        } else if (result == 0) {
+            /* A zero-length or over-sized "successful" report is not valid input. */
+            if (mouse)
+                k4p_input_snapshot_publish_mouse(&g_k4p_input_snapshot, 0, 0);
+            else
+                k4p_input_snapshot_publish_keyboard(&g_k4p_input_snapshot, 0, 0);
+            k4p_pad_state_neutral(&previous);
+            if (transferred > (int)sizeof(packet)) {
+                close_device(&device);
+                published_connected = 0;
+            }
+            sceKernelUsleep(1000);
         } else if (is_usb_timeout(result)) {
             /* HID mice may report only on motion; never leave a stale stick deflection. */
             if (mouse) {
