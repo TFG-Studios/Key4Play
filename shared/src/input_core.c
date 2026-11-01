@@ -108,7 +108,6 @@ void k4p_map_keyboard(const K4pKeyboardReport *keyboard, K4pPadState *out) {
     if (key(keyboard, HID_KEY_R)) out->buttons |= K4P_BTN_R1;
     if (key(keyboard, HID_KEY_C)) out->buttons |= K4P_BTN_L3;
     if (key(keyboard, HID_KEY_V)) out->buttons |= K4P_BTN_R3;
-    if (key(keyboard, HID_KEY_TAB)) out->buttons |= K4P_BTN_SHARE;
     if (key(keyboard, HID_KEY_ENTER)) out->buttons |= K4P_BTN_OPTIONS;
 }
 
