@@ -50,10 +50,15 @@ void draw_controller(const K4pPadState& s) {
     draw_button(d,{o.x+143*scale,o.y+137*scale},"→",(s.buttons&K4P_BTN_RIGHT)!=0);
     draw_button(d,{o.x+270*scale,o.y+103*scale},"SH",(s.buttons&K4P_BTN_SHARE)!=0);
     draw_button(d,{o.x+330*scale,o.y+103*scale},"OP",(s.buttons&K4P_BTN_OPTIONS)!=0);
-    d->AddText({o.x+160*scale,o.y+40*scale},IM_COL32(220,230,240,255),"L1");
-    d->AddText({o.x+430*scale,o.y+40*scale},IM_COL32(220,230,240,255),"R1");
-    d->AddText({o.x+160*scale,o.y+20*scale},IM_COL32(220,230,240,255),s.l2?"L2 ●":"L2");
-    d->AddText({o.x+430*scale,o.y+20*scale},IM_COL32(220,230,240,255),s.r2?"R2 ●":"R2");
+    draw_button(d,{o.x+185*scale,o.y+67*scale},"L1",(s.buttons&K4P_BTN_L1)!=0);
+    draw_button(d,{o.x+415*scale,o.y+67*scale},"R1",(s.buttons&K4P_BTN_R1)!=0);
+    draw_button(d,{o.x+300*scale,o.y+85*scale},"TP",(s.buttons&K4P_BTN_TOUCHPAD)!=0);
+    draw_button(d,{o.x+190*scale,o.y+178*scale},"L3",(s.buttons&K4P_BTN_L3)!=0);
+    draw_button(d,{o.x+410*scale,o.y+178*scale},"R3",(s.buttons&K4P_BTN_R3)!=0);
+    d->AddRectFilled({o.x+220*scale,o.y+24*scale},{o.x+280*scale,o.y+34*scale},IM_COL32(48,60,78,255),4);
+    d->AddRectFilled({o.x+220*scale,o.y+24*scale},{o.x+(220.0F+60.0F*s.l2/255.0F)*scale,o.y+34*scale},IM_COL32(65,180,245,255),4);
+    d->AddRectFilled({o.x+320*scale,o.y+24*scale},{o.x+380*scale,o.y+34*scale},IM_COL32(48,60,78,255),4);
+    d->AddRectFilled({o.x+320*scale,o.y+24*scale},{o.x+(320.0F+60.0F*s.r2/255.0F)*scale,o.y+34*scale},IM_COL32(65,180,245,255),4);
     ImGui::Dummy({size.x,h+28});
 }
 void make_reports(const Uint8* keys,K4pKeyboardReport& keyboard,
