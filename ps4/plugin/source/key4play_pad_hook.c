@@ -142,6 +142,7 @@ int k4p_pad_hook_start(void *read_target, void *read_state_target) {
         printf("[Key4Play] Invalid or overlapping Pad export addresses\n");
         return -1;
     }
+    __atomic_store_n(&g_target_handle, -1, __ATOMIC_RELAXED);
 
     Detour_Construct(&g_read_detour, DetourMode_x64);
     stub = Detour_DetourFunction(&g_read_detour,
@@ -172,6 +173,7 @@ int k4p_pad_hook_start(void *read_target, void *read_state_target) {
 }
 
 void k4p_pad_hook_stop(void) {
+    __atomic_store_n(&g_target_handle, -1, __ATOMIC_RELAXED);
     /*
      * GoldHEN unload should occur at title shutdown, not while game threads
      * are actively polling. Detours are restored before their trampolines
