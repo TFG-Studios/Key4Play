@@ -22,7 +22,7 @@ PS button remains on the physical DS4.
 
 ## Test coverage
 
-Shared C tests validate boot report lengths, keyboard rollover rejection, usage lookup, directional and face-button mapping, mouse signed deltas, trigger/button mapping, axis conversion and preservation of physical controller state during merge.
+Shared C tests validate boot report lengths, keyboard rollover rejection, usage lookup, directional and face-button mapping, mouse signed deltas, trigger/button mapping, axis conversion, physical controller-state preservation, non-blocking snapshots, and the signature-checked Pad jump planner's accepted/rejected stub patterns and relative offsets.
 
 ## Important simulator limitation
 
