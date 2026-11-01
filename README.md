@@ -38,11 +38,11 @@ Do not update or downgrade the console for this project. Firmware 12.52 support 
 - Lock-protected shared input snapshot with separate keyboard/mouse state, generation tracking, composition, and neutralization on invalid reports or disconnect.
 - GitHub Actions Windows build and artifact packaging.
 
-### PS4 USB boot-HID reader
+### PS4 USB HID reader
 
-The first PS4-side reader now resolves sceUsbd dynamically, enumerates USB HID interfaces, finds interrupt-IN endpoints, claims boot keyboard/mouse interfaces, starts separate reader threads, reads HID reports and converts them through the shared input core into diagnostic DualShock-style state.
+The PS4-side reader resolves sceUsbd, enumerates HID interfaces, claims interrupt-IN endpoints and starts independent keyboard/mouse reader threads. It now attempts to retrieve and parse HID report descriptors (including Report IDs and NKRO bitmaps), falling back to boot protocol for standard boot interfaces. Decoded state is published through the shared snapshot, with neutralization on invalid reports, read failures and disconnects.
 
-**It still does not inject input into games.** No scePadRead/scePadReadState hooks or OrbisPadData modifications are enabled. It supports standard boot-protocol keyboard/mouse interfaces only; NKRO and vendor-specific gaming peripherals need a generic HID descriptor parser.
+**It still does not inject input into games.** No scePadRead/scePadReadState hooks or OrbisPadData modifications are enabled. The descriptor path is a first bounded implementation and still needs static review plus physical device testing.
 
 The PRX compiles and is packaged by GitHub Actions. This validates compilation only, not runtime compatibility or safe console loading.
 
@@ -67,13 +67,13 @@ USB keyboard + USB mouse
          Game
 \`\`\`
 
-The Windows Test Lab converts SDL input into synthetic USB HID boot reports, then runs those packets through the same boot-report decoders and mapping functions used by the PS4 reader. Windows SDL input is not itself the same as PS4 USB input; the report format and conversion logic are shared, while the real USB transport and hardware behavior are not.
+The Windows Test Lab converts SDL input into synthetic USB HID boot reports, then runs those packets through the same boot-report decoders and mapping functions used by the PS4 reader. Synthetic descriptor fixtures also exercise Report-ID/NKRO parsing and the shared input snapshot. Windows SDL input is not itself the same as PS4 USB input; the report format and conversion logic are shared, while the real USB transport and hardware behavior are not.
 
 ## Repository layout
 
 - shared/: portable C input core and automated tests.
 - testlab/: Windows graphical simulator.
-- ps4/plugin/: PS4 USB boot-HID reader PRX.
+- ps4/plugin/: PS4 USB HID reader PRX (descriptor reports plus boot fallback).
 - docs/: architecture, testing and compatibility notes.
 - app/: future native PS4 configuration app.
 
@@ -88,11 +88,11 @@ The Windows Test Lab converts SDL input into synthetic USB HID boot reports, the
 ## Roadmap
 
 1. Test Lab v0.2 and automated mapping tests.
-2. PS4 USB boot-HID report reading and hotplug validation.
-3. Integrate HID report-descriptor retrieval and generic report decoding into the PS4 USB reader.
-4. Validate snapshot handoff, device hotplug and plugin shutdown.
-5. Verify OrbisPadData ABI and GoldHEN gamepad hooks.
-6. Merge keyboard/mouse state with physical DS4 input, initially title-specific.
+2. Complete static review and test generic HID report retrieval, descriptor reports and boot fallback.
+3. Validate snapshot handoff, device hotplug and plugin shutdown on real PS4 hardware.
+4. Verify OrbisPadData ABI and GoldHEN gamepad hooks against the installed GoldHEN build.
+5. Add a title-specific controller overlay that preserves physical DS4 state.
+6. Reversible console smoke tests and first gameplay validation.
 7. Native PS4 configuration app, profiles and per-title compatibility.
 
 ## Compatibility expectations
