@@ -48,7 +48,6 @@ void draw_controller(const K4pPadState& s) {
     draw_button(d,{o.x+118*scale,o.y+162*scale},"↓",(s.buttons&K4P_BTN_DOWN)!=0);
     draw_button(d,{o.x+93*scale,o.y+137*scale},"←",(s.buttons&K4P_BTN_LEFT)!=0);
     draw_button(d,{o.x+143*scale,o.y+137*scale},"→",(s.buttons&K4P_BTN_RIGHT)!=0);
-    draw_button(d,{o.x+270*scale,o.y+103*scale},"SH",(s.buttons&K4P_BTN_SHARE)!=0);
     draw_button(d,{o.x+330*scale,o.y+103*scale},"OP",(s.buttons&K4P_BTN_OPTIONS)!=0);
     draw_button(d,{o.x+185*scale,o.y+67*scale},"L1",(s.buttons&K4P_BTN_L1)!=0);
     draw_button(d,{o.x+415*scale,o.y+67*scale},"R1",(s.buttons&K4P_BTN_R1)!=0);
@@ -170,7 +169,7 @@ int main(int,char**) {
                 ImGui::Text("E / Q");ImGui::NextColumn();ImGui::Text("Square / Triangle");ImGui::NextColumn();
                 ImGui::Text("Left Shift / R");ImGui::NextColumn();ImGui::Text("L1 / R1");ImGui::NextColumn();
                 ImGui::Text("C / V");ImGui::NextColumn();ImGui::Text("L3 / R3");ImGui::NextColumn();
-                ImGui::Text("Tab / Enter");ImGui::NextColumn();ImGui::Text("Share / Options");ImGui::NextColumn();
+                ImGui::Text("Enter");ImGui::NextColumn();ImGui::Text("Options");ImGui::NextColumn();
                 ImGui::Columns(1);ImGui::Separator();
                 ImGui::Text("Mouse: left = R2, right = L2, middle = touchpad");
                 ImGui::Text("Mouse movement = right stick (relative capture in Mouse tab)");
