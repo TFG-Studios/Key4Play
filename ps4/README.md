@@ -55,6 +55,10 @@ Expected output: `ps4/plugin/build/key4play_usb_probe.prx`.
 
 GitHub Actions cross-compiles the PRX and uploads an artifact. A successful build proves compilation and linking only; it does not prove runtime compatibility or safe installation.
 
+## Staged validation plan
+
+See [`ps4/TEST_PLAN.md`](TEST_PLAN.md) for the reader-only smoke test, signature-gated hook test and rollback procedure. The first stage keeps `enable_hooks=0`; the hook stage is only appropriate after confirming the exact GoldHEN build for firmware 12.52.
+
 ## Remaining validation before a user test build
 
 1. Validate the USB descriptor requests and reader lifecycle on the actual console.
