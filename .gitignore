@@ -1,0 +1,10 @@
+vendor/
+dist/
+*.o
+*.elf
+*.oelf
+*.prx
+*.pkg
+*.log
+.vscode/
+.idea/
