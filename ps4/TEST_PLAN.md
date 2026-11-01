@@ -28,7 +28,7 @@ enable_hooks=0
 5. Launch the test title and inspect GoldHEN/plugin log output for Key4Play startup and USB interface messages.
 6. Confirm the title and DS4 continue behaving normally.
 7. Connect one standard USB keyboard and one standard USB mouse; check whether the reader identifies both without crashing or disconnecting the DS4.
-8. On the Windows PC, open PuTTY and connect to the PS4 IP using Telnet, port 3232 (GoldHEN Klog). Enable session logging to a file before launching the title. Klog is GoldHEN's diagnostic console stream; it is not a play-time dependency.
+8. On the Windows PC, open PuTTY and connect to the PS4 IP using Telnet, port 3232 (GoldHEN Klog). Enable session logging to a file before launching the title. Klog is GoldHEN's diagnostic console stream; it is not a play-time dependency. Logging is best-effort: this PRX currently uses printf-style diagnostics, and GoldHEN's SDK documents that logging configuration can affect plugin stability. No visible log line alone does not prove the PRX failed to load.
 9. Look for these messages:
    - `[Key4Play] Starting USB HID reader and optional controller overlay`
    - `[Key4Play] USB readers started.`
@@ -36,7 +36,7 @@ enable_hooks=0
    - `[Key4Play] Keyboard attached VID=...` and `[Key4Play] Mouse attached VID=...`
    - `[Key4Play] Keyboard state ...` / `[Key4Play] Mouse state ...` when keys/buttons/movement change.
 
-At this stage, keyboard and mouse input is diagnostic only; it must not change game controls. If the startup message does not appear, plugin loading or logging is not yet confirmed. If only one device attaches, record which one and its model.
+At this stage, keyboard and mouse input is diagnostic only; it must not change game controls. If the startup message does not appear, plugin loading or logging is not yet confirmed. If only one device attaches, record which one and its model. Keep this first run to a low-risk offline title with no unsaved progress; the USB system-module ABI and access permissions have not yet been validated on real hardware.
 
 ## Stage 2 — signature-gated controller overlay
 
