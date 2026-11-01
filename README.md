@@ -38,13 +38,13 @@ Do not update or downgrade the console for this project. Firmware 12.52 support 
 - Lock-protected shared input snapshot with separate keyboard/mouse state, generation tracking, composition, and neutralization on invalid reports or disconnect.
 - GitHub Actions Windows build and artifact packaging.
 
-### PS4 USB HID reader
+### PS4 USB HID reader and experimental controller overlay
 
-The PS4-side reader resolves sceUsbd, enumerates HID interfaces, claims interrupt-IN endpoints and starts independent keyboard/mouse reader threads. It now attempts to retrieve and parse HID report descriptors (including Report IDs and NKRO bitmaps), falling back to boot protocol for standard boot interfaces. Decoded state is published through the shared snapshot, with neutralization on invalid reports, read failures and disconnects.
+The PS4-side reader resolves sceUsbd, enumerates HID interfaces, retrieves bounded HID report descriptors where available, and decodes Report-ID/NKRO reports with boot-protocol fallback. Decoded state is published through a shared snapshot and neutralized after invalid reports, read failures, mouse idle timeouts and disconnects.
 
-**It still does not inject input into games.** No scePadRead/scePadReadState hooks or OrbisPadData modifications are enabled. The descriptor path is a first bounded implementation and still needs static review plus physical device testing.
+An opt-in `scePadRead` / `scePadReadState` overlay is now included. It adds mapped buttons and only overrides mapped stick axes, leaving other physical DS4 fields intact. It is **disabled by default** and requires `/data/GoldHEN/key4play.ini` with `[Key4Play]` and `enable_hooks=1`. It must also be loaded only in a specific title section of GoldHEN `plugins.ini`, never `[default]`.
 
-The PRX compiles and is packaged by GitHub Actions. This validates compilation only, not runtime compatibility or safe console loading.
+**Important:** the overlay and USB reader have only been cross-compiled, not run on PS4 hardware. Hook target resolution, detour behavior, physical DS4 passthrough, USB device compatibility and safe unload remain unverified. Do not install or enable this build yet.
 
 ## Architecture
 
@@ -73,7 +73,7 @@ The Windows Test Lab converts SDL input into synthetic USB HID boot reports, the
 
 - shared/: portable C input core and automated tests.
 - testlab/: Windows graphical simulator.
-- ps4/plugin/: PS4 USB HID reader PRX (descriptor reports plus boot fallback).
+- ps4/plugin/: PS4 USB HID reader plus opt-in experimental controller overlay PRX.
 - docs/: architecture, testing and compatibility notes.
 - app/: future native PS4 configuration app.
 
@@ -90,8 +90,8 @@ The Windows Test Lab converts SDL input into synthetic USB HID boot reports, the
 1. Test Lab v0.2 and automated mapping tests.
 2. Complete static review and test generic HID report retrieval, descriptor reports and boot fallback.
 3. Validate snapshot handoff, device hotplug and plugin shutdown on real PS4 hardware.
-4. Verify OrbisPadData ABI and GoldHEN gamepad hooks against the installed GoldHEN build.
-5. Add a title-specific controller overlay that preserves physical DS4 state.
+4. Validate the experimental `scePadRead` / `scePadReadState` overlay, detour targets and DS4 passthrough on the target GoldHEN build.
+5. Tune mouse-to-stick response and validate real keyboards/mice.
 6. Reversible console smoke tests and first gameplay validation.
 7. Native PS4 configuration app, profiles and per-title compatibility.
 
