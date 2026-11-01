@@ -10,7 +10,7 @@ The experimental PRX currently contains:
 4. Descriptor-defined Report-ID/NKRO keyboard and mouse decoding, with standard boot-protocol fallback.
 5. Independent keyboard and mouse reader threads.
 6. A lock-protected shared input snapshot; invalid reports, mouse motion timeouts, read failures and disconnects clear stale state. Game-thread reads are non-blocking.
-7. An opt-in gamepad overlay that detours `scePadRead` and `scePadReadState`, merges mapped button bits, overrides only mapped axes, and preserves other physical DS4 fields.
+7. An opt-in gamepad overlay that signature-checks and patches the `scePadRead` / `scePadReadState` forwarding stubs, merges mapped button bits, overrides only mapped axes, and preserves other physical DS4 fields.
 
 The overlay dynamically resolves `scePadRead` and `scePadReadState` from `libScePad` and uses signature-checked relative-jump hooks. It only patches the 32-bit displacement of the expected x86-64 forwarding stub, using an atomic compare/exchange; if the target prologue differs, it refuses to install. It uses OpenOrbis `OrbisPadData` with compile-time ABI checks. The PRX links the shared HID/input modules and does not statically import `libScePad`.
 
@@ -25,7 +25,7 @@ enable_hooks=1
 
 The PRX must additionally be loaded from a **specific title section** in GoldHEN's `plugins.ini`, never from `[default]`. The example configuration is `ps4/key4play.ini.example` and keeps the setting disabled.
 
-Do not enable the overlay or install this build yet. The hooks have only been cross-compiled. They have not been validated in a running title on firmware 12.52, and we have not verified the imported pad-function targets, detour stability, DS4 passthrough, device compatibility or unload behavior on hardware. In particular, do not manually unload a hooked plugin while a game is actively polling controller input.
+Do not enable the overlay or install this build yet. The hooks have only been cross-compiled. They have not been validated in a running title on firmware 12.52, and we have not verified the imported pad-function targets, forwarding-stub signature compatibility, DS4 passthrough, device compatibility or unload behavior on hardware. In particular, do not manually unload a hooked plugin while a game is actively polling controller input.
 
 ## Input mapping
 
@@ -59,7 +59,7 @@ GitHub Actions cross-compiles the PRX and uploads an artifact. A successful buil
 
 1. Validate the USB descriptor requests and reader lifecycle on the actual console.
 2. Confirm the imported `scePadRead` / `scePadReadState` targets are the intended game-process functions on the installed GoldHEN build.
-3. Validate detour installation/removal and DS4 passthrough in a controlled title.
+3. Validate relative-jump patch installation/removal and DS4 passthrough in a controlled title.
 4. Verify real keyboard/mouse models, unplug/replug behavior and mouse response.
 5. Prepare a reversible, title-specific test procedure with a known rollback path.
 
