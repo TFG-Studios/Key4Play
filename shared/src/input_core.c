@@ -156,6 +156,11 @@ void k4p_map_mouse(const K4pMouseReport *mouse, const K4pSettings *settings,
     }
     if (mouse->buttons & 0x04u) out->buttons |= K4P_BTN_TOUCHPAD;
 
+    /*
+     * Mouse reports carry deltas, not absolute stick positions. Only override
+     * an axis when that report contains movement on the axis; a zero-delta
+     * report must allow the physical DS4 stick to pass through unchanged.
+     */
     if (mouse->x != 0) {
         out->axis_override |= K4P_AXIS_RX;
         out->rx = axis_from_float(process_mouse_axis((float)mouse->x, settings));
