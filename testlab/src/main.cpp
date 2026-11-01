@@ -75,8 +75,14 @@ void make_reports(const Uint8* keys, uint8_t keyboard_packet[8],
       {SDL_SCANCODE_RETURN,0x28},{SDL_SCANCODE_UP,0x52},{SDL_SCANCODE_DOWN,0x51},
       {SDL_SCANCODE_LEFT,0x50},{SDL_SCANCODE_RIGHT,0x4f}};
     unsigned count=0;
-    for(const auto& pair:pairs)
-        if(keys[pair.scan]&&count<6) keyboard_packet[2+count++]=pair.usage;
+    bool rollover=false;
+    for(const auto& pair:pairs) {
+        if(!keys[pair.scan]) continue;
+        if(count<6) keyboard_packet[2+count++]=pair.usage;
+        else rollover=true;
+    }
+    /* Match the USB boot-keyboard ErrorRollOver report when >6 keys are held. */
+    if(rollover) for(unsigned i=2;i<8;++i) keyboard_packet[i]=0x01;
 
     Uint32 buttons=SDL_GetMouseState(nullptr,nullptr);
     if(buttons&SDL_BUTTON(SDL_BUTTON_LEFT)) mouse_packet[0]|=1;
