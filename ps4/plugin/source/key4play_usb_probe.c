@@ -64,7 +64,7 @@ static int g_sysmodule_module = -1;
 static volatile int g_reader_stop = 0;
 static OrbisPthread g_reader_threads[2];
 static int g_reader_started[2] = {0, 0};
-static K4pInputSnapshot g_input_snapshot;
+K4pInputSnapshot g_k4p_input_snapshot;
 
 static int load_system_module(const char* filename) {
     const char* sandbox = sceKernelGetFsSandboxRandomWord();
@@ -380,8 +380,8 @@ static void* input_reader(void* argument) {
         if (!device.handle) {
             if (!find_hid_device(&device, mouse)) {
                 if (published_connected) {
-                    if (mouse) k4p_input_snapshot_publish_mouse(&g_input_snapshot, 0, 0);
-                    else k4p_input_snapshot_publish_keyboard(&g_input_snapshot, 0, 0);
+                    if (mouse) k4p_input_snapshot_publish_mouse(&g_k4p_input_snapshot, 0, 0);
+                    else k4p_input_snapshot_publish_keyboard(&g_k4p_input_snapshot, 0, 0);
                     published_connected = 0;
                     k4p_pad_state_neutral(&previous);
                 }
@@ -425,12 +425,12 @@ static void* input_reader(void* argument) {
             }
 
             if (valid) {
-                if (mouse) k4p_input_snapshot_publish_mouse(&g_input_snapshot, &current, 1);
-                else k4p_input_snapshot_publish_keyboard(&g_input_snapshot, &current, 1);
+                if (mouse) k4p_input_snapshot_publish_mouse(&g_k4p_input_snapshot, &current, 1);
+                else k4p_input_snapshot_publish_keyboard(&g_k4p_input_snapshot, &current, 1);
             } else {
                 k4p_pad_state_neutral(&current);
-                if (mouse) k4p_input_snapshot_publish_mouse(&g_input_snapshot, &current, 1);
-                else k4p_input_snapshot_publish_keyboard(&g_input_snapshot, &current, 1);
+                if (mouse) k4p_input_snapshot_publish_mouse(&g_k4p_input_snapshot, &current, 1);
+                else k4p_input_snapshot_publish_keyboard(&g_k4p_input_snapshot, &current, 1);
             }
 
             if (valid && !same_pad(&current, &previous)) {
@@ -447,8 +447,8 @@ static void* input_reader(void* argument) {
         } else if (result < 0) {
             printf("[Key4Play] %s USB read failed: %d; reconnecting\n",
                    mouse ? "Mouse" : "Keyboard", result);
-            if (mouse) k4p_input_snapshot_publish_mouse(&g_input_snapshot, 0, 0);
-            else k4p_input_snapshot_publish_keyboard(&g_input_snapshot, 0, 0);
+            if (mouse) k4p_input_snapshot_publish_mouse(&g_k4p_input_snapshot, 0, 0);
+            else k4p_input_snapshot_publish_keyboard(&g_k4p_input_snapshot, 0, 0);
             published_connected = 0;
             k4p_pad_state_neutral(&previous);
             close_device(&device);
@@ -457,8 +457,8 @@ static void* input_reader(void* argument) {
     }
 
     close_device(&device);
-    if (mouse) k4p_input_snapshot_publish_mouse(&g_input_snapshot, 0, 0);
-    else k4p_input_snapshot_publish_keyboard(&g_input_snapshot, 0, 0);
+    if (mouse) k4p_input_snapshot_publish_mouse(&g_k4p_input_snapshot, 0, 0);
+    else k4p_input_snapshot_publish_keyboard(&g_k4p_input_snapshot, 0, 0);
     return 0;
 }
 
@@ -478,7 +478,7 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
         return result;
     }
     g_usbd_initialized = 1;
-    k4p_input_snapshot_init(&g_input_snapshot);
+    k4p_input_snapshot_init(&g_k4p_input_snapshot);
     __atomic_store_n(&g_reader_stop, 0, __ATOMIC_RELEASE);
 
     result = scePthreadCreate(&g_reader_threads[0], 0, input_reader, 0, "k4p-keyboard");
