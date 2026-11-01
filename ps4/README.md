@@ -12,7 +12,7 @@ The experimental PRX currently contains:
 6. A lock-protected shared input snapshot; invalid reports, mouse motion timeouts, read failures and disconnects clear stale state. Game-thread reads are non-blocking.
 7. An opt-in gamepad overlay that detours `scePadRead` and `scePadReadState`, merges mapped button bits, overrides only mapped axes, and preserves other physical DS4 fields.
 
-The overlay uses the pinned GoldHEN SDK Detour implementation and OpenOrbis `OrbisPadData`. Compile-time checks cover the fields used by the overlay and the expected structure size. The PRX links `libScePad`, the SDK Detour/HDE64 sources, and the shared HID/input modules.
+The overlay dynamically resolves `scePadRead` and `scePadReadState` from `libScePad` and uses signature-checked relative-jump hooks. It only patches the 32-bit displacement of the expected x86-64 forwarding stub, using an atomic compare/exchange; if the target prologue differs, it refuses to install. It uses OpenOrbis `OrbisPadData` with compile-time ABI checks. The PRX links the shared HID/input modules and does not statically import `libScePad`.
 
 ## Controller overlay safety gate
 
