@@ -1,4 +1,5 @@
 #include "key4play/input_core.h"
+#include "key4play/hid_report.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -10,6 +11,60 @@ static K4pKeyboardReport keyboard_with(const uint8_t *usages, unsigned count,
     report.modifiers = modifiers;
     for (i = 0; i < count && i < 6; ++i) report.keys[i] = usages[i];
     return report;
+}
+
+
+static void test_descriptor_parser(void) {
+    /* Composite descriptor: NKRO keyboard (ID 1) + signed mouse (ID 2). */
+    static const uint8_t descriptor[] = {
+        0x05,0x01, 0x09,0x06, 0xa1,0x01, 0x85,0x01,
+        0x05,0x07, 0x19,0xe0, 0x29,0xe7, 0x15,0x00, 0x25,0x01,
+        0x75,0x01, 0x95,0x08, 0x81,0x02,
+        0x75,0x01, 0x95,0x08, 0x81,0x01,
+        0x19,0x00, 0x29,0x65, 0x75,0x01, 0x95,0x66, 0x81,0x02,
+        0xc0,
+        0x05,0x01, 0x09,0x02, 0xa1,0x01, 0x85,0x02,
+        0x09,0x01, 0xa1,0x00,
+        0x05,0x09, 0x19,0x01, 0x29,0x03, 0x15,0x00, 0x25,0x01,
+        0x75,0x01, 0x95,0x03, 0x81,0x02,
+        0x75,0x01, 0x95,0x05, 0x81,0x01,
+        0x05,0x01, 0x15,0x81, 0x25,0x7f,
+        0x09,0x30, 0x09,0x31, 0x75,0x08, 0x95,0x02, 0x81,0x06,
+        0x09,0x38, 0x95,0x01, 0x81,0x06,
+        0xc0, 0xc0
+    };
+    K4pHidLayout layout;
+    K4pKeyboardReport keyboard;
+    K4pMouseReport mouse;
+    uint8_t keyboard_packet[16] = {0};
+    const uint8_t mouse_packet[] = {0x02, 0x05, 0xf6, 0x0a, 0xff};
+    const uint8_t malformed[] = {0x75, 0x20, 0x95, 0xff, 0x81, 0x02};
+
+    assert(k4p_hid_parse_report_descriptor(descriptor, sizeof(descriptor), &layout));
+    assert(layout.uses_report_ids);
+    assert(layout.report_bytes[1] == sizeof(keyboard_packet));
+    assert(layout.report_bytes[2] == sizeof(mouse_packet));
+
+    /* Report ID 1: modifier byte, padding byte, then NKRO bitmap. */
+    keyboard_packet[0] = 0x01;
+    keyboard_packet[1] = 0x03; /* Left Ctrl + Left Shift. */
+    keyboard_packet[3u + (0x1au / 8u)] |= (uint8_t)(1u << (0x1au % 8u));
+    keyboard_packet[3u + (0x2cu / 8u)] |= (uint8_t)(1u << (0x2cu % 8u));
+    assert(k4p_hid_decode_keyboard(&layout, keyboard_packet,
+                                   sizeof(keyboard_packet), &keyboard));
+    assert(keyboard.modifiers == 0x03u);
+    assert(k4p_key_down(&keyboard, 0x1au));
+    assert(k4p_key_down(&keyboard, 0x2cu));
+    assert(!k4p_hid_decode_keyboard(&layout, keyboard_packet, 2u, &keyboard));
+
+    /* Report ID 2: buttons 1+3, X=-10, Y=10, wheel=-1. */
+    assert(k4p_hid_decode_mouse(&layout, mouse_packet, sizeof(mouse_packet), &mouse));
+    assert(mouse.buttons == 0x05u);
+    assert(mouse.x == -10 && mouse.y == 10 && mouse.wheel == -1);
+    assert(!k4p_hid_decode_mouse(&layout, mouse_packet, 2u, &mouse));
+
+    assert(!k4p_hid_parse_report_descriptor(malformed, sizeof(malformed), &layout));
+    assert(!k4p_hid_parse_report_descriptor(descriptor, 4097u, &layout));
 }
 
 int main(void) {
@@ -107,5 +162,6 @@ int main(void) {
     assert(physical.lx == 200); /* no keyboard input: preserve DS4 axis */
     assert(physical.ly == 10);
     assert(physical.l2 == 70 && physical.r2 == 255);
+    test_descriptor_parser();
     return 0;
 }
