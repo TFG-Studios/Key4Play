@@ -12,8 +12,8 @@ CFLAGS := --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -std=c11 \
   -isysroot $(OO_PS4_TOOLCHAIN) -isystem $(OO_PS4_TOOLCHAIN)/include \
   -I$(GOLDHEN_SDK)/include -Iinclude -I../../shared/include -Wall -Wextra
 LDFLAGS := -m elf_x86_64 -pie --script $(OO_PS4_TOOLCHAIN)/link.x -e _init \
-  --eh-frame-hdr -L$(OO_PS4_TOOLCHAIN)/lib -L$(GOLDHEN_SDK) \
-  -lSceLibcInternal -lGoldHEN_Hook -lkernel -lSceSysmodule -lSceUsbd -lm
+  --eh-frame-hdr -L$(OO_PS4_TOOLCHAIN)/lib \
+  -lSceLibcInternal -lkernel -lm
 
 .PHONY: all clean check-env
 all: check-env $(TARGET).prx
@@ -21,7 +21,6 @@ all: check-env $(TARGET).prx
 check-env:
 	@test -n "$(OO_PS4_TOOLCHAIN)" || (echo "Set OO_PS4_TOOLCHAIN"; exit 1)
 	@test -n "$(GOLDHEN_SDK)" || (echo "Set GOLDHEN_SDK"; exit 1)
-	@test -f "$(GOLDHEN_SDK)/libGoldHEN_Hook.a" || (echo "Build GoldHEN_Plugins_SDK first"; exit 1)
 
 build:
 	mkdir -p build
