@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <stdio.h>
-#include <orbis/Sysmodule.h>
+#include <string.h>
+#include <orbis/libkernel.h>
+#include <orbis/_types/sysmodule.h>
 #include <orbis/Usbd.h>
 
 #define K4P_PUBLIC __attribute__((visibility("default")))
@@ -11,7 +13,81 @@ K4P_PUBLIC const char* g_pluginDesc = "Enumerates USB HID interfaces; no input i
 K4P_PUBLIC const char* g_pluginAuth = "TFG-Studios";
 K4P_PUBLIC uint32_t g_pluginVersion = 0x00000100;
 
+typedef struct K4pUsbdApi {
+    int32_t (*init)(void);
+    int32_t (*exit)(void);
+    int32_t (*get_device_list)(libusb_device***);
+    int32_t (*free_device_list)(libusb_device**);
+    int32_t (*get_device_descriptor)(libusb_device*, struct libusb_device_descriptor*);
+    int32_t (*get_active_config_descriptor)(libusb_device*, struct libusb_config_descriptor**);
+    int32_t (*free_config_descriptor)(struct libusb_config_descriptor*);
+} K4pUsbdApi;
+
+static K4pUsbdApi g_usbd;
 static int g_usbd_initialized = 0;
+static int g_usbd_module = -1;
+static int g_sysmodule_module = -1;
+
+static int load_system_module(const char* filename) {
+    const char* sandbox = sceKernelGetFsSandboxRandomWord();
+    char path[256];
+    int result = 0;
+    if (!sandbox || !sandbox[0]) return -1;
+    snprintf(path, sizeof(path), "/%s/common/lib/%s", sandbox, filename);
+    return (int32_t)sceKernelLoadStartModule(path, 0, 0, 0, 0, &result);
+}
+
+static int resolve_symbol(int module, const char* name, void** out) {
+    int result = sceKernelDlsym(module, name, out);
+    if (result < 0 || !*out) {
+        printf("[Key4Play] dlsym %s failed: %d\n", name, result);
+        return result < 0 ? result : -1;
+    }
+    return 0;
+}
+
+static int load_usb_api(void) {
+    int32_t (*sysmodule_is_loaded)(enum OrbisSysModule) = 0;
+    int32_t (*sysmodule_load)(enum OrbisSysModule) = 0;
+    int result;
+
+    g_sysmodule_module = load_system_module("libSceSysmodule.sprx");
+    if (g_sysmodule_module < 0) {
+        printf("[Key4Play] failed to load libSceSysmodule: %d\n", g_sysmodule_module);
+        return g_sysmodule_module;
+    }
+    if (resolve_symbol(g_sysmodule_module, "sceSysmoduleIsLoaded",
+                       (void**)&sysmodule_is_loaded) < 0 ||
+        resolve_symbol(g_sysmodule_module, "sceSysmoduleLoadModule",
+                       (void**)&sysmodule_load) < 0) return -1;
+
+    if (!sysmodule_is_loaded(ORBIS_SYSMODULE_USBD)) {
+        result = sysmodule_load(ORBIS_SYSMODULE_USBD);
+        if (result < 0) {
+            printf("[Key4Play] sceSysmoduleLoadModule(USBD) failed: %d\n", result);
+            return result;
+        }
+    }
+
+    g_usbd_module = load_system_module("libSceUsbd.sprx");
+    if (g_usbd_module < 0) {
+        printf("[Key4Play] failed to load libSceUsbd: %d\n", g_usbd_module);
+        return g_usbd_module;
+    }
+
+#define K4P_RESOLVE(field, symbol) \
+    do { result = resolve_symbol(g_usbd_module, symbol, (void**)&g_usbd.field); \
+         if (result < 0) return result; } while (0)
+    K4P_RESOLVE(init, "sceUsbdInit");
+    K4P_RESOLVE(exit, "sceUsbdExit");
+    K4P_RESOLVE(get_device_list, "sceUsbdGetDeviceList");
+    K4P_RESOLVE(free_device_list, "sceUsbdFreeDeviceList");
+    K4P_RESOLVE(get_device_descriptor, "sceUsbdGetDeviceDescriptor");
+    K4P_RESOLVE(get_active_config_descriptor, "sceUsbdGetActiveConfigDescriptor");
+    K4P_RESOLVE(free_config_descriptor, "sceUsbdFreeConfigDescriptor");
+#undef K4P_RESOLVE
+    return 0;
+}
 
 static void inspect_device(libusb_device* device, unsigned index,
                            unsigned* keyboard_count, unsigned* mouse_count,
@@ -21,17 +97,16 @@ static void inspect_device(libusb_device* device, unsigned index,
     int result;
     unsigned i, j;
 
-    result = sceUsbdGetDeviceDescriptor(device, &descriptor);
+    result = g_usbd.get_device_descriptor(device, &descriptor);
     if (result < 0) {
         printf("[Key4Play] USB device %u: descriptor read failed (%d)\n", index, result);
         return;
     }
-
     printf("[Key4Play] USB %u VID=%04x PID=%04x class=%02x configs=%u\n",
            index, descriptor.idVendor, descriptor.idProduct,
            descriptor.bDeviceClass, descriptor.bNumConfigurations);
 
-    result = sceUsbdGetActiveConfigDescriptor(device, &config);
+    result = g_usbd.get_active_config_descriptor(device, &config);
     if (result < 0 || !config) {
         printf("[Key4Play] USB %u: no active configuration (%d)\n", index, result);
         return;
@@ -42,7 +117,6 @@ static void inspect_device(libusb_device* device, unsigned index,
         for (j = 0; j < (unsigned)interface->num_altsetting; ++j) {
             struct libusb_interface_descriptor* alt = &interface->altsetting[j];
             if (alt->bInterfaceClass != 0x03) continue;
-
             if (alt->bInterfaceSubClass == 0x01 && alt->bInterfaceProtocol == 0x01) {
                 ++(*keyboard_count);
                 printf("[Key4Play]   HID boot keyboard interface=%u alt=%u\n",
@@ -59,25 +133,23 @@ static void inspect_device(libusb_device* device, unsigned index,
             }
         }
     }
-    sceUsbdFreeConfigDescriptor(config);
+    g_usbd.free_config_descriptor(config);
 }
 
 static int enumerate_usb_devices(void) {
     libusb_device** devices = 0;
     int count, i;
     unsigned keyboards = 0, mice = 0, other_hid = 0;
-
-    count = sceUsbdGetDeviceList(&devices);
+    count = g_usbd.get_device_list(&devices);
     if (count < 0 || !devices) {
         printf("[Key4Play] sceUsbdGetDeviceList failed: %d\n", count);
         return count < 0 ? count : -1;
     }
-
     for (i = 0; i < count; ++i) {
         if (devices[i]) inspect_device(devices[i], (unsigned)i,
                                        &keyboards, &mice, &other_hid);
     }
-    sceUsbdFreeDeviceList(devices);
+    g_usbd.free_device_list(devices);
     printf("[Key4Play] USB scan complete: boot keyboards=%u boot mice=%u other HID=%u\n",
            keyboards, mice, other_hid);
     return 0;
@@ -89,16 +161,9 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
     (void)argc;
     (void)argv;
     printf("[Key4Play] plugin_load: USB discovery-only milestone\n");
-
-    if (!sceSysmoduleIsLoaded(ORBIS_SYSMODULE_USBD)) {
-        result = sceSysmoduleLoadModule(ORBIS_SYSMODULE_USBD);
-        if (result < 0) {
-            printf("[Key4Play] failed to load libSceUsbd: %d\n", result);
-            return result;
-        }
-    }
-
-    result = sceUsbdInit();
+    result = load_usb_api();
+    if (result < 0) return result;
+    result = g_usbd.init();
     if (result < 0) {
         printf("[Key4Play] sceUsbdInit failed: %d\n", result);
         return result;
@@ -111,10 +176,10 @@ K4P_PUBLIC int plugin_unload(int argc, const char* argv[]) {
     (void)argc;
     (void)argv;
     if (g_usbd_initialized) {
-        sceUsbdExit();
+        g_usbd.exit();
         g_usbd_initialized = 0;
     }
-    /* Leave the system module loaded; other system components may use it. */
+    /* Keep sysmodules loaded: other system components may use them. */
     printf("[Key4Play] plugin_unload complete\n");
     return 0;
 }
