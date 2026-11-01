@@ -79,20 +79,43 @@ static int32_t k4p_scePadReadState_hook(int32_t handle, OrbisPadData *data) {
 }
 
 static void restore_detour(Detour *detour) {
-    if (!detour || !detour->StubPtr) return;
+    uint64_t current_jump = 0;
+    int owns_entry_patch = 0;
+
+    if (!detour) return;
+
+    if (detour->StubPtr) {
+        /*
+         * GoldHEN's x64 restore path copies exactly the decoded instruction
+         * span. Its x32 path computes an unsafe restore length for this
+         * 64-bit target, so these hooks must stay in x64 mode.
+         */
+        if (detour->FunctionPtr) {
+            const uint8_t *entry = (const uint8_t *)detour->FunctionPtr;
+            if (entry[0] == 0xffu && entry[1] == 0x25u) {
+                memcpy(&current_jump, entry + 6, sizeof(current_jump));
+                owns_entry_patch = current_jump == (uint64_t)(uintptr_t)detour->TrampolinePtr;
+            }
+        }
+
+        Detour_RestoreFunction(detour);
+        sceKernelMunmap(detour->StubPtr, detour->StubSize);
+        detour->StubPtr = 0;
+        detour->StubSize = 0;
+    }
 
     /*
-     * GoldHEN SDK's Detour_Destroy() restores and frees the stub but does not
-     * release the x64 trampoline mapping. RestoreFunction() uses the exact
-     * decoded instruction span for x64 mode; the x32 branch's restore length
-     * is unsafe for this 64-bit target.
+     * If another plugin chained a detour after ours, GoldHEN restores our
+     * original instructions into our trampoline so that the later plugin's
+     * trampoline can still call through it. Keep that mapping alive.
      */
-    Detour_RestoreFunction(detour);
-    sceKernelMunmap(detour->StubPtr, detour->StubSize);
-    if (detour->TrampolinePtr)
-        sceKernelMunmap(detour->TrampolinePtr, sizeof(detour->JumpInstructions64));
-    detour->StubPtr = 0;
-    detour->StubSize = 0;
+    if (detour->TrampolinePtr && owns_entry_patch)
+        sceKernelMunmap(detour->TrampolinePtr,
+                        sizeof(detour->JumpInstructions64));
+    else if (detour->TrampolinePtr && !detour->StubPtr && !detour->FunctionPtr)
+        sceKernelMunmap(detour->TrampolinePtr,
+                        sizeof(detour->JumpInstructions64));
+
     detour->TrampolinePtr = 0;
 }
 
