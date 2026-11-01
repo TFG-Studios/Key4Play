@@ -14,7 +14,7 @@ The PS4 PRX now:
 
 This is the first real PS4 input-reading path. It is still deliberately diagnostic-only: it does not hook scePadRead/scePadReadState, modify OrbisPadData, create a virtual controller, or send mapped input to games.
 
-Only standard HID boot keyboard and boot mouse interfaces are supported at this stage. NKRO, report-ID, vendor-defined and descriptor-defined gaming peripherals are not yet supported.
+Only standard HID boot keyboard and boot mouse interfaces are currently read by the PS4 transport. The generic report-descriptor parser is host-tested but is not yet wired into USB descriptor requests or this reader.
 
 ## Build prerequisites
 
@@ -40,6 +40,7 @@ The plugin performs USB reads only when explicitly loaded. It does not inject co
 Next increments:
 1. Validate boot keyboard/mouse report reading and disconnect/reconnect behavior on PS4.
 2. Add a host-tested HID report-descriptor parser for non-boot devices.
-3. Add a bounded, thread-safe input snapshot and report diagnostics.
-4. Verify the exact OrbisPadData ABI and GoldHEN hook behavior for the target firmware/build.
-5. Add controller merge only after USB reading is stable.
+3. Integrate HID report-descriptor retrieval and generic report decoding into the PS4 USB transport.
+4. Validate the reader's device lifecycle and snapshot handoff, including unplug/replug and shutdown.
+5. Verify the exact OrbisPadData ABI and GoldHEN hook behavior for the target firmware/build.
+6. Add controller merge only after USB reading is stable.
