@@ -513,7 +513,7 @@ K4P_PUBLIC int plugin_load(int argc, const char* argv[]) {
     (void)argv;
 
     if (g_usbd_initialized) return 0;
-    printf("[Key4Play] Starting USB HID reader (no game injection)\n");
+    printf("[Key4Play] Starting USB HID reader and optional controller overlay\n");
     result = load_usb_api();
     if (result < 0) return result;
 
@@ -597,7 +597,7 @@ K4P_PUBLIC int plugin_unload(int argc, const char* argv[]) {
         g_usbd.exit();
         g_usbd_initialized = 0;
     }
-    printf("[Key4Play] USB reader stopped; no controller hooks were installed.\n");
+    printf("[Key4Play] USB reader and optional controller overlay stopped.\n");
     return 0;
 }
 
