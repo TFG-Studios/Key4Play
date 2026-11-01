@@ -152,7 +152,7 @@ static void inspect_device(libusb_device* device, unsigned index,
                 for (e = 0; e < alt->bNumEndpoints; ++e) {
                     const struct libusb_endpoint_descriptor* endpoint = &alt->endpoint[e];
                     if ((endpoint->bmAttributes & 0x03u) == 0x03u) {
-                        printf("[Key4Play]     interrupt %s endpoint=0x%02x maxPacket=%u interval=%u\\n",
+                        printf("[Key4Play]     interrupt %s endpoint=0x%02x maxPacket=%u interval=%u\n",
                                (endpoint->bEndpointAddress & 0x80u) ? "IN" : "OUT",
                                endpoint->bEndpointAddress,
                                endpoint->wMaxPacketSize & 0x07ffu,
